@@ -1,0 +1,63 @@
+# ==========================================
+# C++ y Entorno (Windows)
+# ==========================================
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.sub
+*.user
+
+# ==========================================
+# JetBrains Rider / CLion
+# ==========================================
+.idea/
+*.sln.iml
+# No ignorar .idea/vcs.xml ni .idea/runConfigurations/ si quieres compartir tu config de tests
+
+# ==========================================
+# CMake
+# ==========================================
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Directorios de compilación estándar de Rider/CLion
+cmake-build-*/
+build/
+out/
+
+# ==========================================
+# Qt / QML
+# ==========================================
+*.qmlc
+*.jsc
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+.rcc/
+.qt/
+*_autogen/
+*_qmltyperegistrations.cpp
+
+# ==========================================
+# AWS IoT / Seguridad (Preparación para Fase 4)
+# ==========================================
+# NUNCA subir certificados a GitHub
+certs/
+*.pem
+*.key
+*.crt
+.env
