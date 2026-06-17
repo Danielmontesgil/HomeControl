@@ -3,7 +3,8 @@
 #include <vector>
 #include "IMqttController.h"
 #include "mqtt/async_client.h"
-#include "IMqttListener.h"
+
+class IMqttListener;
 
 class MqttController : public IMqttController, public mqtt::callback
 {
@@ -17,6 +18,7 @@ public:
     void publish(const std::string& topic, const std::string& payload) override;
     void subscribe(const std::string& topic) override;
     void addListener(const std::string& topic, IMqttListener* listener) override;
+    std::vector<std::string> getRegisteredTopics() const override;
     
 private:
     mqtt::async_client m_client;

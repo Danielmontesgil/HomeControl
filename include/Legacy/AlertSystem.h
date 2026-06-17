@@ -1,7 +1,8 @@
 #pragma once
 #include <memory>
 #include <vector>
-#include "ISensor.h"
+
+class ISensor;
 
 class AlertSystem
 {

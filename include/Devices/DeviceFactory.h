@@ -2,16 +2,17 @@
 #include "IDeviceFactory.h"
 #include <unordered_map>
 
+class HomeDeviceBase;
+
 class DeviceFactory : public IDeviceFactory
 {
 public:
-    DeviceFactory() = default;
-    ~DeviceFactory() override = default;
+    DeviceFactory();
+    ~DeviceFactory() override;
 
-    std::unique_ptr<HomeDevice> create(const std::string& type, const std::string& id) override;
-    void registerType(const std::string& type, std::function<std::unique_ptr<HomeDevice>(const std::string&)> creator) override;
+    std::unique_ptr<HomeDeviceBase> create(const std::string& type, const std::string& id, const std::string& topic) override;
+    void registerType(const std::string& type, std::function<std::unique_ptr<HomeDeviceBase>(const std::string&, const std::string&)> creator) override;
 
 private:
-    // El "Registro" (Registry): Un mapa que asocia un string (tipo) con una función creadora
-    std::unordered_map<std::string, std::function<std::unique_ptr<HomeDevice>(const std::string&)>> m_creators;
+    std::unordered_map<std::string, std::function<std::unique_ptr<HomeDeviceBase>(const std::string&, const std::string&)>> m_creators;
 };

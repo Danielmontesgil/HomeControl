@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10) 
 
-project(SensorsSystem LANGUAGES CXX)
+project(HomeControlCore LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,7 +55,7 @@ set(PROJECT_SOURCES
         include/Mqtt/MqttController.h
         src/Mqtt/MqttController.cpp
         include/Mqtt/IMqttListener.h
-        include/Devices/HomeDevice.h
+        include/Devices/HomeDeviceBase.h
         include/Devices/IDeviceFactory.h
         include/Devices/DeviceFactory.h
         src/Devices/DeviceFactory.cpp
@@ -63,18 +63,20 @@ set(PROJECT_SOURCES
         src/Devices/LightDevice.cpp
         include/Devices/RollerDevice.h
         src/Devices/RollerDevice.cpp
+        include/Devices/DeviceModel.h
+        src/Devices/DeviceModel.cpp
 )
 
-add_executable(SensorsApp ${PROJECT_SOURCES})
+add_executable(HomeControl ${PROJECT_SOURCES})
 
-qt_add_qml_module(SensorsApp
+qt_add_qml_module(HomeControl
         URI SensorsApp
         VERSION 1.0
         RESOURCE_PREFIX "/"
         QML_FILES main.qml
 )
 
-target_link_libraries(SensorsApp 
+target_link_libraries(HomeControl 
     PRIVATE 
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
     paho-mqttpp3-static
@@ -95,19 +97,20 @@ FetchContent_MakeAvailable(googletest)
 
 # Preparamos los archivos fuente para los tests (excluimos main.cpp)
 set(LIB_SOURCES ${PROJECT_SOURCES})
-list(REMOVE_ITEM LIB_SOURCES main.cpp)
+list(REMOVE_ITEM LIB_SOURCES src/main.cpp)
 
 # Creamos el ejecutable de los tests
-add_executable(SensorsTests
+add_executable(HomeControlTests
     tests/ThreadSafeValueTest.cpp
     tests/RollerDeviceTest.cpp
     tests/LightDeviceTest.cpp
     tests/MqttControllerTest.cpp
+    tests/SensorBridgeTest.cpp
     ${LIB_SOURCES}
 )
 
 # Le decimos a los tests dónde encontrar tus clases de C++
-target_include_directories(SensorsTests PRIVATE 
+target_include_directories(HomeControlTests PRIVATE 
     include
     include/Core
     include/Devices
@@ -117,7 +120,7 @@ target_include_directories(SensorsTests PRIVATE
 )
 
 # Enlazamos la librería de GTest, Qt y Paho
-target_link_libraries(SensorsTests
+target_link_libraries(HomeControlTests
     PRIVATE
     GTest::gtest_main
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
@@ -126,4 +129,4 @@ target_link_libraries(SensorsTests
 
 # Activamos el descubrimiento automático de tests para CTest/Rider
 include(GoogleTest)
-gtest_discover_tests(SensorsTests)
+gtest_discover_tests(HomeControlTests)

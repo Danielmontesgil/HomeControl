@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
-#include "IMqttListener.h"
+
+class IMqttListener;
 
 class IMqttController
 {
@@ -11,6 +12,8 @@ public:
     
     // Metodo para añadir observadores (Pattern Observer)
     virtual void addListener(const std::string& topic, IMqttListener* listener) = 0;
+    
+    virtual std::vector<std::string> getRegisteredTopics() const = 0;
     
     virtual ~IMqttController() = default;
 };

@@ -1,43 +1,35 @@
 #pragma once
 #include <QObject>
 #include <QTimer>
-#include <memory>
-#include <vector>
-#include "IMqttController.h"
-#include "ISensor.h"
-#include "LightDevice.h"
-#include "RollerDevice.h"
+
+class DeviceModel;
+class IDeviceFactory;
+class IMqttController;
+class HomeDeviceBase;
 
 class SensorBridge : public QObject
 {
     Q_OBJECT
-    
-    // Q_PROPERTY(float luminosity READ getLuminosity NOTIFY dataChanged)
-    // Q_PROPERTY(float temperature READ getTemperature NOTIFY dataChanged)
-    
-    Q_PROPERTY(float lightStatus READ getLightStatus NOTIFY dataChanged)
-    Q_PROPERTY(float rollerPosition READ getRollerPosition NOTIFY dataChanged)
+
+    Q_PROPERTY(DeviceModel* devices READ getDevices CONSTANT)
     
 public:
-    explicit SensorBridge(IMqttController& mqttController, LightDevice& light, RollerDevice& roller, QObject* parent = nullptr);
+    explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IMqttController& mqttController, QObject* parent = nullptr);
     virtual ~SensorBridge()=default;
     
-    // float getLuminosity() const;
-    // float getTemperature() const;
+    Q_INVOKABLE void publishCommand(const QString& topic, const QString& payload);
+    Q_INVOKABLE int getDeviceCount(const QString& prefix) const;
+    Q_INVOKABLE void addDevice(const QString& type, const QString& id, const QString& topic);
+    Q_INVOKABLE int getCountByType(int type) const;
+    Q_INVOKABLE void setAllDevicesState(int type, const QString& payload);
     
-    float getLightStatus() const;
-    float getRollerPosition() const;
-    
-    Q_INVOKABLE void toggleLight(bool toggle);
+    DeviceModel* getDevices() const { return &m_deviceModel; }
     
 signals:
-    void dataChanged();
+    void countChanged();
     
 private:
-    // const std::vector<std::unique_ptr<ISensor>>& m_sensors;
-    QTimer *m_timer;
     IMqttController& m_mqttController;
-    
-    LightDevice& m_light;
-    RollerDevice& m_roller;
+    IDeviceFactory& m_deviceFactory;
+    DeviceModel& m_deviceModel;
 };

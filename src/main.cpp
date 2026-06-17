@@ -6,14 +6,15 @@
 #include <memory>
 #include <thread>
 #include <chrono>
-
 #include "ConsoleLogger.h"
+#include "DeviceFactory.h"
 #include "LightDevice.h"
 #include "LuminositySensor.h"
 #include "MqttController.h"
 #include "RollerDevice.h"
 #include "TemperatureSensor.h"
 #include "SensorBridge.h"
+#include "DeviceModel.h"
 
 using namespace Qt::StringLiterals;
 
@@ -39,21 +40,37 @@ int main(int argc, char *argv[]) {
     std::thread worker(updateSensors, std::ref(sensors));
     worker.detach();
     
-    auto mqttController = MqttController("tcp://localhost:1883", "SensorsApp_Daniel");
+    auto mqttController = MqttController("tcp://localhost:1883", "HomeControl_Daniel");
     mqttController.connect();
+
+    // --- Configuración de la Factoría de Dispositivos ---
+    auto deviceFactory = DeviceFactory();
     
-    LightDevice livingRoomLight = LightDevice("LivingRoomLight");
-    RollerDevice livingRoomRoller = RollerDevice("LivingRoomRoller");
+    auto deviceModel = DeviceModel();
     
-    mqttController.addListener("home/light/living", &livingRoomLight);
-    mqttController.addListener("home/roller/living", &livingRoomRoller);
+    // Registro de tipos (Open/Closed Principle)
+    deviceFactory.registerType("Light", [](const std::string& id, const std::string& topic) {
+        return std::make_unique<LightDevice>(id, topic);
+    });
+    deviceFactory.registerType("Roller", [](const std::string& id, const std::string& topic) {
+        return std::make_unique<RollerDevice>(id, topic);
+    });
     
     ConsoleLogger logger;
     mqttController.addListener("*", &logger);
     
     mqttController.subscribe("home/#");
     
-    SensorBridge bridge(mqttController, livingRoomLight, livingRoomRoller);
+    // Registro de tipos para que QML reconozca el modelo y sus roles
+    qmlRegisterType<DeviceModel>("SensorsApp", 1, 0, "DeviceModel");
+    
+    // Ahora inyectamos todos los dispositivos en el bridge de forma dinámica
+    SensorBridge bridge( deviceFactory, deviceModel, mqttController);
+    bridge.addDevice("Light", "LivingRoomLight1", "home/light/living/1");
+    bridge.addDevice("Light", "LivingRoomLight2", "home/light/living/2");
+    bridge.addDevice("Light", "KitchenLight1", "home/light/kitchen/1");
+    bridge.addDevice("Roller", "LivingRoomRoller1", "home/roller/living/1");
+
     QQmlApplicationEngine engine;
     
     engine.rootContext()->setContextProperty("sensorBridge", &bridge);

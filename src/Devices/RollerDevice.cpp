@@ -17,7 +17,7 @@ void RollerDevice::onMessageReceived(const std::string& topic, const std::string
 
         if (!clean.empty()) {
             const float pos = std::stof(clean) / 100.0f;
-            value.set(pos);
+            updateValue(pos);
         }
     } catch (...) {
         // En un sistema real, aquí registraríamos un log de error

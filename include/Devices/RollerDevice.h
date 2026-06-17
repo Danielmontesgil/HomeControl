@@ -1,10 +1,12 @@
 #pragma once
-#include "HomeDevice.h"
+#include "HomeDeviceBase.h"
 
-class RollerDevice : public HomeDevice
+class RollerDevice : public HomeDeviceBase
 {
 public:
-    using HomeDevice::HomeDevice;
+    using HomeDeviceBase::HomeDeviceBase;
     
     void onMessageReceived(const std::string& topic, const std::string& payload) override;
+    
+    DeviceType getType() const override { return DeviceType::Roller; };
 };

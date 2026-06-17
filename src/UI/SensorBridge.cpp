@@ -1,43 +1,68 @@
 #include "SensorBridge.h"
 
-SensorBridge::SensorBridge(IMqttController& mqttController, LightDevice& light, RollerDevice& roller, QObject* parent) : QObject(parent), m_mqttController(mqttController), m_light(light), m_roller(roller)
+#include "DeviceModel.h"
+#include "IMqttController.h"
+#include "HomeDeviceBase.h"
+#include "IDeviceFactory.h"
+
+SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel,IMqttController& mqttController, QObject* parent) 
+    : QObject(parent), m_mqttController(mqttController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel)
 {
-    m_timer = new QTimer(this);
+}
+
+void SensorBridge::publishCommand(const QString& topic, const QString& payload)
+{
+    m_mqttController.publish(topic.toStdString(), payload.toStdString());
+}
+
+int SensorBridge::getDeviceCount(const QString& prefix) const
+{
+    auto topics = m_mqttController.getRegisteredTopics();
+    std::string p = prefix.toStdString();
+    int count = 0;
     
-    connect(m_timer, &QTimer::timeout, this, &SensorBridge::dataChanged);
+    for (const auto& topic : topics)
+    {
+        if (topic.starts_with(p))
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+void SensorBridge::addDevice(const QString& type, const QString& id, const QString& topic)
+{
+    auto device = m_deviceFactory.create(type.toStdString(), id.toStdString(), topic.toStdString());
+    m_mqttController.addListener(topic.toStdString(), device.get());
+    m_deviceModel.addDevice(std::move(device));
     
-    m_timer->start(100);
+    emit countChanged();
 }
 
-// float SensorBridge::getLuminosity() const
-// {
-//     if (m_sensors.size() > 0)
-//     {
-//         return m_sensors[0]->read();
-//     }
-//     return 0.0f;
-// }
-//
-// float SensorBridge::getTemperature() const
-// {
-//     if (m_sensors.size() > 1)
-//     {
-//         return m_sensors[1]->read();
-//     }
-//     return 0.0f;
-// }
-
-float SensorBridge::getLightStatus() const
+int SensorBridge::getCountByType(int type) const
 {
-    return m_light.getValue();
+    int count = 0;
+    for (int i = 0; i < m_deviceModel.rowCount(); ++i)
+    {
+        auto idx = m_deviceModel.index(i);
+        if (m_deviceModel.data(idx, DeviceModel::TypeRole).toInt() == type)
+        {
+            count++;
+        }
+    }
+    return count;
 }
 
-float SensorBridge::getRollerPosition() const
+void SensorBridge::setAllDevicesState(int type, const QString& payload)
 {
-    return m_roller.getValue();
-}
-
-void SensorBridge::toggleLight(bool toggle)
-{
-    m_mqttController.publish("home/light/living", toggle ? "ON" : "OFF");
+    for (int i = 0; i < m_deviceModel.rowCount(); ++i)
+    {
+        auto idx = m_deviceModel.index(i);
+        if (m_deviceModel.data(idx, DeviceModel::TypeRole).toInt() == type)
+        {
+            QString topic = m_deviceModel.data(idx, DeviceModel::TopicRole).toString();
+            m_mqttController.publish(topic.toStdString(), payload.toStdString());
+        }
+    }
 }

@@ -1,4 +1,5 @@
 #include "AlertSystem.h"
+#include "ISensor.h"
 #include <iostream>
 
 void AlertSystem::checkSensors(const std::vector<std::unique_ptr<ISensor>>& sensors)

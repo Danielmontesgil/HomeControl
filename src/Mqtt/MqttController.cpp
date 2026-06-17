@@ -1,4 +1,6 @@
 #include "MqttController.h"
+#include "IMqttListener.h"
+#include <iostream>
 
 MqttController::MqttController(const std::string& serverAddress, const std::string& clientId) : m_client(serverAddress, clientId) 
 {
@@ -55,4 +57,15 @@ void MqttController::addListener(const std::string& topic, IMqttListener* listen
         return;
     }
     m_listeners[topic].push_back(listener);
+}
+
+std::vector<std::string> MqttController::getRegisteredTopics() const
+{
+    std::vector<std::string> topics;
+    topics.reserve(m_listeners.size());
+    for (const auto& [topic, listeners] : m_listeners)
+    {
+        topics.push_back(topic);
+    }
+    return topics;
 }

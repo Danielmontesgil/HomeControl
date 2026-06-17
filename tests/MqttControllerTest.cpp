@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "MqttController.h"
+#include "IMqttListener.h"
 
 // Listener Falso (Mock) para espiar lo que hace el MqttController
 class MockMqttListener : public IMqttListener {

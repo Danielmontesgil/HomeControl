@@ -6,11 +6,11 @@ void LightDevice::onMessageReceived(const std::string& topic, const std::string&
 {
     if (payload == "ON")
     {
-        value.set(1.0f);
+        updateValue(1.0f);
     }
     else if (payload == "OFF")
     {
-        value.set(0.0f);
+        updateValue(0.0f);
     }
     
     std::cout << "LightDevice::onMessageReceived()" << std::endl;
