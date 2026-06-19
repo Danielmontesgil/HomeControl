@@ -10,7 +10,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
 qt_policy(SET QTP0001 NEW)
 qt_standard_project_setup()
 
@@ -40,31 +40,34 @@ include_directories(
 
 set(PROJECT_SOURCES 
         src/main.cpp 
+        src/Legacy/LuminositySensor.cpp 
+        src/Legacy/TemperatureSensor.cpp
+        src/Legacy/AlertSystem.cpp
+        src/UI/SensorBridge.cpp
+        src/Mqtt/MqttController.cpp
+        src/Devices/DeviceModel.cpp
+        src/Devices/DeviceFactory.cpp
+        src/Devices/LightDevice.cpp
+        src/Devices/RollerDevice.cpp
         include/Legacy/ISensor.h 
         include/Legacy/LuminositySensor.h 
-        src/Legacy/LuminositySensor.cpp 
         include/Legacy/TemperatureSensor.h 
-        src/Legacy/TemperatureSensor.cpp
         include/Legacy/AlertSystem.h
-        src/Legacy/AlertSystem.cpp
         include/Core/ThreadSafeValue.h
         include/Core/ConsoleLogger.h
         include/UI/SensorBridge.h
-        src/UI/SensorBridge.cpp
         include/Mqtt/IMqttController.h
         include/Mqtt/MqttController.h
-        src/Mqtt/MqttController.cpp
         include/Mqtt/IMqttListener.h
         include/Devices/HomeDeviceBase.h
         include/Devices/IDeviceFactory.h
         include/Devices/DeviceFactory.h
-        src/Devices/DeviceFactory.cpp
-        include/Devices/LightDevice.h
-        src/Devices/LightDevice.cpp
-        include/Devices/RollerDevice.h
-        src/Devices/RollerDevice.cpp
         include/Devices/DeviceModel.h
-        src/Devices/DeviceModel.cpp
+        include/Devices/IStoppable.h
+        include/Devices/IValuable.h
+        include/Devices/ISwitchable.h
+        include/Devices/LightDevice.h
+        include/Devices/RollerDevice.h
 )
 
 add_executable(HomeControl ${PROJECT_SOURCES})
@@ -78,28 +81,24 @@ qt_add_qml_module(HomeControl
 
 target_link_libraries(HomeControl 
     PRIVATE 
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2
     paho-mqttpp3-static
 )
 
 # --- Unit Testing (GoogleTest) ---
 enable_testing()
 
-# Descargamos GoogleTest (GTest) desde su repositorio oficial
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
   GIT_TAG        v1.14.0
 )
-# Forzar a GTest a usar la misma configuración de MSVC que tu proyecto
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-# Preparamos los archivos fuente para los tests (excluimos main.cpp)
 set(LIB_SOURCES ${PROJECT_SOURCES})
 list(REMOVE_ITEM LIB_SOURCES src/main.cpp)
 
-# Creamos el ejecutable de los tests
 add_executable(HomeControlTests
     tests/ThreadSafeValueTest.cpp
     tests/RollerDeviceTest.cpp
@@ -109,7 +108,6 @@ add_executable(HomeControlTests
     ${LIB_SOURCES}
 )
 
-# Le decimos a los tests dónde encontrar tus clases de C++
 target_include_directories(HomeControlTests PRIVATE 
     include
     include/Core
@@ -119,14 +117,12 @@ target_include_directories(HomeControlTests PRIVATE
     include/Legacy
 )
 
-# Enlazamos la librería de GTest, Qt y Paho
 target_link_libraries(HomeControlTests
     PRIVATE
     GTest::gtest_main
-    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2
     paho-mqttpp3-static
 )
 
-# Activamos el descubrimiento automático de tests para CTest/Rider
 include(GoogleTest)
 gtest_discover_tests(HomeControlTests)

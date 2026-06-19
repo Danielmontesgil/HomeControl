@@ -1,5 +1,6 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include <QQuickStyle>
 #include <QQmlContext>
 #include <iostream>
 #include <vector>
@@ -32,6 +33,8 @@ void updateSensors(std::vector<std::unique_ptr<ISensor>>& sensors)
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+    
+    QQuickStyle::setStyle("Fusion");
     
     std::vector<std::unique_ptr<ISensor>> sensors;
     sensors.push_back(std::make_unique<LuminositySensor>());

@@ -5,7 +5,8 @@
 class RollerDeviceTest : public ::testing::Test {
 protected:
     std::string deviceId = "test_roller";
-    RollerDevice roller{deviceId};
+    std::string deviceTopic = "home/roller/test_roller";
+    RollerDevice roller{deviceId, deviceTopic};
 };
 
 // 1. Verificación del ID

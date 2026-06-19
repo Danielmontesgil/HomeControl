@@ -1,17 +1,15 @@
 #include "LightDevice.h"
-#include <iostream>
-#include <ostream>
 
-void LightDevice::onMessageReceived(const std::string& topic, const std::string& payload)
+void LightDevice::onMessageReceived(const std::string&, const std::string& payload)
 {
-    if (payload == "ON")
-    {
-        updateValue(1.0f);
+    bool newState = (payload == "ON");
+    if (m_isOn != newState) {
+        m_isOn = newState;
+        notifyUpdate();
     }
-    else if (payload == "OFF")
-    {
-        updateValue(0.0f);
-    }
-    
-    std::cout << "LightDevice::onMessageReceived()" << std::endl;
+}
+
+void LightDevice::prepareForCommand(const std::string& payload)
+{
+    // No requiere cambios de estado internos previos para una luz ON/OFF simple
 }

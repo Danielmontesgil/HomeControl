@@ -22,6 +22,7 @@ public:
     Q_INVOKABLE void addDevice(const QString& type, const QString& id, const QString& topic);
     Q_INVOKABLE int getCountByType(int type) const;
     Q_INVOKABLE void setAllDevicesState(int type, const QString& payload);
+    Q_INVOKABLE void stopDevice(const QString& topic);
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
     

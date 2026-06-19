@@ -70,8 +70,23 @@ ApplicationWindow {
                             Layout.fillWidth: true
                         }
                         Switch {
+                            id: masterLightSwitch
                             visible: _lightCount > 1
                             scale: 0.8
+                            checked: sensorBridge.getCountByType(0) > 0
+                            
+                            indicator: Rectangle {
+                                implicitWidth: 48
+                                implicitHeight: 26
+                                radius: 13
+                                color: masterLightSwitch.checked ? "#4CAF50" : "#BDC3C7"
+                                Rectangle {
+                                    x: masterLightSwitch.checked ? parent.width - width - 2 : 2
+                                    y: 2
+                                    width: 22; height: 22; radius: 11; color: "white"
+                                    Behavior on x { NumberAnimation { duration: 150 } }
+                                }
+                            }
                             onClicked: sensorBridge.setAllDevicesState(0, checked ? "ON" : "OFF")
                         }
                     }
@@ -92,8 +107,8 @@ ApplicationWindow {
                                 spacing: 15
                                 Rectangle {
                                     width: 45; height: 45; radius: 8
-                                    color: model.deviceValue > 0 ? "#FFF9C4" : "#F5F5F5"
-                                    Text { anchors.centerIn: parent; text: "💡"; font.pixelSize: 20 }
+                                    color: model.isOn ? "#FFF9C4" : "#E0E0E0"
+                                    Text { anchors.centerIn: parent; text: "💡"; font.pixelSize: 20; opacity: model.isOn ? 1.0 : 0.4 }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
@@ -101,7 +116,21 @@ ApplicationWindow {
                                     Text { text: model.topic; font.pixelSize: 11; color: "#95A5A6" }
                                 }
                                 Switch {
-                                    checked: model.deviceValue > 0
+                                    id: deviceSwitch
+                                    checked: model.isOn
+                                    
+                                    indicator: Rectangle {
+                                        implicitWidth: 40
+                                        implicitHeight: 22
+                                        radius: 11
+                                        color: deviceSwitch.checked ? "#4CAF50" : "#BDC3C7"
+                                        Rectangle {
+                                            x: deviceSwitch.checked ? parent.width - width - 2 : 2
+                                            y: 2
+                                            width: 18; height: 18; radius: 9; color: "white"
+                                            Behavior on x { NumberAnimation { duration: 150 } }
+                                        }
+                                    }
                                     onClicked: sensorBridge.publishCommand(model.topic, checked ? "ON" : "OFF")
                                 }
                             }
@@ -144,14 +173,39 @@ ApplicationWindow {
                                 spacing: 10
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    Rectangle { width: 35; height: 35; radius: 6; color: "#E3F2FD"; Text { anchors.centerIn: parent; text: "🪟"; font.pixelSize: 16 } }
-                                    Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; Layout.fillWidth: true; elide: Text.ElideRight }
-                                    Text { text: Math.round(model.deviceValue * 100) + "%"; color: "#2196F3"; font.weight: Font.Black }
+                                    Rectangle { 
+                                        width: 35; height: 35; radius: 6; 
+                                        color: model.isMoving ? "#BBDEFB" : "#E0E0E0"
+                                        Text { anchors.centerIn: parent; text: "🪟"; font.pixelSize: 16; opacity: model.isMoving ? 1.0 : 0.5 } 
+                                    }
+                                    Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; Layout.fillWidth: true; elide: Text.ElideRight; opacity: model.isMoving ? 1.0 : 0.7 }
+                                    Text { text: Math.round((model.deviceValue ?? 0) * 100) + "%"; color: model.isMoving ? "#2196F3" : "#757575"; font.weight: Font.Black }
                                 }
                                 Slider {
+                                    id: rollerSlider
                                     Layout.fillWidth: true
-                                    value: model.deviceValue
-                                    onMoved: sensorBridge.publishCommand(model.topic, Math.round(value * 100).toString())
+                                    value: model.deviceValue ?? 0.0
+                                    // Bloqueamos la interacción directa mientras se mueve
+                                    enabled: !model.isMoving
+                                    
+                                    onPressedChanged: {
+                                        if (!pressed) { // Al soltar
+                                            sensorBridge.publishCommand(model.topic, Math.round(value * 100).toString())
+                                        }
+                                    }
+                                }
+                                
+                                Button {
+                                    visible: model.supportsStop && model.isMoving
+                                    text: "🛑 DETENER"
+                                    flat: true
+                                    contentItem: Text {
+                                        text: parent.text
+                                        color: "#F44336"
+                                        font.weight: Font.Bold
+                                        horizontalAlignment: Text.AlignHCenter
+                                    }
+                                    onClicked: sensorBridge.stopDevice(model.topic)
                                 }
                             }
                         }

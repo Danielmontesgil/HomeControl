@@ -15,7 +15,10 @@ public:
 		IdRole = Qt::UserRole + 1,
 		TopicRole,
 		ValueRole,
-		TypeRole
+		TypeRole,
+		SupportsStopRole,
+		IsMovingRole,
+		IsOnRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);
@@ -25,6 +28,7 @@ public:
 	QHash<int, QByteArray> roleNames() const override;
 
 	void addDevice(std::unique_ptr<HomeDeviceBase> device);
+	HomeDeviceBase* findByTopic(const QString& topic) const;
 
 private:
 	std::vector<std::unique_ptr<HomeDeviceBase>> m_devices;
