@@ -1,8 +1,8 @@
 #include "LightDevice.h"
 
-void LightDevice::onMessageReceived(const std::string&, const std::string& payload)
+void LightDevice::updateState(const std::string& state, const QJsonObject&)
 {
-    bool newState = (payload == "ON");
+    bool newState = (state == "on");
     if (m_isOn != newState) {
         m_isOn = newState;
         notifyUpdate();

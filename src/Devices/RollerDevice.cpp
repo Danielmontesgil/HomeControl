@@ -2,26 +2,24 @@
 #include <string>
 #include <algorithm>
 
-void RollerDevice::onMessageReceived(const std::string&, const std::string& payload)
+void RollerDevice::updateState(const std::string& state, const QJsonObject& attributes)
 {
-    if (payload.empty()) return;
+    // Extract the position (0-100) from the Home Assistant attributes
+    if (attributes.contains("current_position"))
+    {
+        double posPercent = attributes["current_position"].toDouble();
+        m_value.set(static_cast<float>(posPercent / 100.0f));
+    }
 
-    try {
-        std::string clean = payload;
-        std::erase_if(clean, [](const unsigned char c) {
-            return !std::isdigit(c) && c != '.';
-        });
+    // Determine if the device is currently moving.
+    // Valid states of a cover in HA are: "open", "closed", "opening", "closing"
+    bool moving = (state == "opening" || state == "closing");
+    if (m_isMoving != moving)
+    {
+        m_isMoving = moving;
+    }
 
-        if (!clean.empty()) {
-            const float pos = std::stof(clean) / 100.0f;
-            m_value.set(pos);
-            
-            // Si llega un reporte de valor, asumimos que se detuvo o está en el target
-            // (En un sistema real compararíamos con el target)
-            m_isMoving = false; 
-            notifyUpdate();
-        }
-    } catch (...) {}
+    notifyUpdate();
 }
 
 void RollerDevice::stop()

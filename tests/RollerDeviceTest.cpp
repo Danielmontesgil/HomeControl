@@ -9,42 +9,27 @@ protected:
     RollerDevice roller{deviceId, deviceTopic};
 };
 
-// 1. Verificación del ID
 TEST_F(RollerDeviceTest, Initialization_KeepsCorrectId) {
     EXPECT_EQ(roller.getId(), "test_roller");
     EXPECT_FLOAT_EQ(roller.getValue(), 0.0f);
 }
 
-// 2. Parseo de números limpios
 TEST_F(RollerDeviceTest, MessageReceived_CleanNumber_UpdatesValue) {
-    roller.onMessageReceived("test/topic", "50");
+    QJsonObject attrs;
+    attrs["current_position"] = 50;
+    roller.updateState("open", attrs);
     EXPECT_FLOAT_EQ(roller.getValue(), 0.5f); // 50 / 100 = 0.5
 }
 
-// 3. Saneamiento: Eliminar símbolo '%'
-TEST_F(RollerDeviceTest, MessageReceived_NumberWithPercent_UpdatesValue) {
-    roller.onMessageReceived("test/topic", "75.5%");
-    EXPECT_FLOAT_EQ(roller.getValue(), 0.755f);
-}
-
-// 4. Saneamiento: Eliminar espacios y texto adicional
-TEST_F(RollerDeviceTest, MessageReceived_DirtyString_UpdatesValue) {
-    roller.onMessageReceived("test/topic", " Pos: 33.3 % ");
-    EXPECT_FLOAT_EQ(roller.getValue(), 0.333f);
-}
-
-// 5. Manejo de errores: String vacío
-TEST_F(RollerDeviceTest, MessageReceived_EmptyString_IgnoresValue) {
-    roller.onMessageReceived("test/topic", "50"); // Seteamos a 0.5 primero
-    roller.onMessageReceived("test/topic", "");
-    EXPECT_FLOAT_EQ(roller.getValue(), 0.5f); // No debería cambiar
-}
-
-// 6. Manejo de errores: String no numérico (El try-catch debe proteger)
-TEST_F(RollerDeviceTest, MessageReceived_InvalidString_DoesNotCrash) {
-    roller.onMessageReceived("test/topic", "50"); // Seteamos a 0.5 primero
-    EXPECT_NO_THROW({
-        roller.onMessageReceived("test/topic", "OPEN");
-    });
-    EXPECT_FLOAT_EQ(roller.getValue(), 0.5f); // No debería cambiar
+TEST_F(RollerDeviceTest, MessageReceived_CleanNumber_IsMoving) {
+    QJsonObject attrs;
+    attrs["current_position"] = 70;
+    roller.updateState("opening", attrs);
+    EXPECT_TRUE(roller.isMoving());
+    attrs["current_position"] = 0;
+    roller.updateState("closing", attrs);
+    EXPECT_TRUE(roller.isMoving());
+    attrs["current_position"] = 20;
+    roller.updateState("open", attrs);
+    EXPECT_FALSE(roller.isMoving());
 }

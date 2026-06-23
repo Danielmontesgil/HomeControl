@@ -7,7 +7,7 @@ class LightDevice : public HomeDeviceBase, public ISwitchable
 public:
     using HomeDeviceBase::HomeDeviceBase;
     
-    void onMessageReceived(const std::string& topic, const std::string& payload) override;
+    void updateState(const std::string& state, const QJsonObject& attributes) override;
     
     DeviceType getType() const override { return DeviceType::Light; };
     

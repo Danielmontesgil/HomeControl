@@ -1,27 +1,28 @@
 #include <gtest/gtest.h>
+#include "Network/IHaController.h"
 #include "SensorBridge.h"
-#include "IMqttController.h"
 #include "HomeDeviceBase.h"
 #include "DeviceModel.h"
 #include "IDeviceFactory.h"
 
 // Mock para interceptar las llamadas al controlador MQTT desde el Bridge
-class MockMqttController : public IMqttController {
+class MockHaController : public IHaController {
 public:
-    std::string lastTopic;
-    std::string lastPayload;
-    int publishCount = 0;
+    std::string lastDomain;
+    std::string lastService;
+    std::string lastEntityId;
+    QJsonObject lastServiceData;
 
-    void connect() override {}
-    void publish(const std::string& topic, const std::string& payload) override {
-        lastTopic = topic;
-        lastPayload = payload;
-        publishCount++;
-    }
-    void subscribe(const std::string& topic) override {}
-    void addListener(const std::string& topic, IMqttListener* listener) override {}
-    std::vector<std::string> getRegisteredTopics() const override {
-        return {};
+    void connectToHa(const std::string& url, const std::string& token) override {}
+    void callService(const std::string& domain, 
+                             const std::string& service, 
+                             const std::string& entityId, 
+                             const QJsonObject& serviceData = {}) override
+    {
+        lastDomain = domain;
+        lastService = service;
+        lastEntityId = entityId;
+        lastServiceData = serviceData;
     }
 };
 
@@ -29,7 +30,7 @@ public:
 class DummyDevice : public HomeDeviceBase {
 public:
     using HomeDeviceBase::HomeDeviceBase;
-    void onMessageReceived(const std::string&, const std::string&) override {}
+    void updateState(const std::string&, const QJsonObject&) override {}
     DeviceType getType() const override { return DeviceType::Light; }
     void prepareForCommand(const std::string&) override {}
 };
@@ -46,27 +47,18 @@ class SensorBridgeTest : public ::testing::Test {
 protected:
     MockDeviceFactory mockFactory;
     DeviceModel deviceModel;
-    MockMqttController mockMqtt;
+    MockHaController mockHa;
     // No necesitamos pasar parent (nullptr por defecto)
-    SensorBridge bridge{mockFactory, deviceModel, mockMqtt};
+    SensorBridge bridge{mockFactory, deviceModel, mockHa};
 };
-
-// Verificamos que publishCommand envía los datos correctos al controlador
-TEST_F(SensorBridgeTest, PublishCommand_DelegatesToMqttController) {
-    QString topic = "home/light/all";
-    QString payload = "OFF";
-    
-    bridge.publishCommand(topic, payload);
-    
-    EXPECT_EQ(mockMqtt.publishCount, 1);
-    EXPECT_EQ(mockMqtt.lastTopic, "home/light/all");
-    EXPECT_EQ(mockMqtt.lastPayload, "OFF");
-}
 
 // Verificamos que funciona con diferentes niveles de tópicos
 TEST_F(SensorBridgeTest, PublishCommand_HandlesHierarchicalTopics) {
-    bridge.publishCommand("home/roller/living", "50");
+    auto dummy = std::make_unique<DummyDevice>("LightLiving", "light.living_room");
+    deviceModel.addDevice(std::move(dummy));
+    bridge.publishCommand("light.living_room", "ON");
     
-    EXPECT_EQ(mockMqtt.lastTopic, "home/roller/living");
-    EXPECT_EQ(mockMqtt.lastPayload, "50");
+    EXPECT_EQ(mockHa.lastDomain, "light");
+    EXPECT_EQ(mockHa.lastService, "turn_on");
+    EXPECT_EQ(mockHa.lastEntityId, "light.living_room");
 }
