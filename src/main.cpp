@@ -2,6 +2,9 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQmlContext>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -10,8 +13,9 @@
 #include "ConsoleLogger.h"
 #include "DeviceFactory.h"
 #include "LightDevice.h"
+#include "DimmableColorLightDevice.h"
 #include "LuminositySensor.h"
-#include "MqttController.h"
+#include "HaWebSocketController.h"
 #include "RollerDevice.h"
 #include "TemperatureSensor.h"
 #include "SensorBridge.h"
@@ -43,36 +47,53 @@ int main(int argc, char *argv[]) {
     std::thread worker(updateSensors, std::ref(sensors));
     worker.detach();
     
-    auto mqttController = MqttController("tcp://localhost:1883", "HomeControl_Daniel");
-    mqttController.connect();
+    // --- Network Setup (Home Assistant WebSockets) ---
+    auto haController = HaWebSocketController();
 
-    // --- Configuración de la Factoría de Dispositivos ---
+    // --- Device Factory & Model Setup ---
     auto deviceFactory = DeviceFactory();
-    
     auto deviceModel = DeviceModel();
     
-    // Registro de tipos (Open/Closed Principle)
+    // Register types in factory (Open/Closed Principle)
     deviceFactory.registerType("Light", [](const std::string& id, const std::string& topic) {
         return std::make_unique<LightDevice>(id, topic);
+    });
+    deviceFactory.registerType("DimmableColorLight", [](const std::string& id, const std::string& topic) {
+        return std::make_unique<DimmableColorLightDevice>(id, topic);
     });
     deviceFactory.registerType("Roller", [](const std::string& id, const std::string& topic) {
         return std::make_unique<RollerDevice>(id, topic);
     });
     
-    ConsoleLogger logger;
-    mqttController.addListener("*", &logger);
-    
-    mqttController.subscribe("home/#");
-    
-    // Registro de tipos para que QML reconozca el modelo y sus roles
+    // Register type for QML model roles exposure
     qmlRegisterType<DeviceModel>("SensorsApp", 1, 0, "DeviceModel");
     
-    // Ahora inyectamos todos los dispositivos en el bridge de forma dinámica
-    SensorBridge bridge( deviceFactory, deviceModel, mqttController);
-    bridge.addDevice("Light", "LivingRoomLight1", "home/light/living/1");
-    bridge.addDevice("Light", "LivingRoomLight2", "home/light/living/2");
-    bridge.addDevice("Light", "KitchenLight1", "home/light/kitchen/1");
-    bridge.addDevice("Roller", "LivingRoomRoller1", "home/roller/living/1");
+    // Initialize SensorBridge (injecting dependencies)
+    SensorBridge bridge(deviceFactory, deviceModel, haController);
+    
+    // Connect HA controller signals to Bridge slots
+    // This must be done BEFORE connecting to prevent missing the initial state dump (get_states)
+    QObject::connect(&haController, &HaWebSocketController::deviceDiscovered, &bridge, &SensorBridge::onDeviceDiscovered);
+    QObject::connect(&haController, &HaWebSocketController::deviceStateChanged, &bridge, &SensorBridge::onDeviceStateChanged);
+
+    // Load HA credentials dynamically from local config.json file
+    QString haUrl = "ws://localhost:8123/api/websocket";
+    QString haToken = "";
+
+    QFile configFile("config.json");
+    if (configFile.open(QIODevice::ReadOnly))
+    {
+        QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
+        QJsonObject obj = doc.object();
+        if (obj.contains("ha_url")) haUrl = obj["ha_url"].toString();
+        if (obj.contains("ha_token")) haToken = obj["ha_token"].toString();
+    }
+    else
+    {
+        std::cerr << "[Warning] config.json not found, using default URL and empty token." << std::endl;
+    }
+
+    haController.connectToHa(haUrl.toStdString(), haToken.toStdString());
 
     QQmlApplicationEngine engine;
     
