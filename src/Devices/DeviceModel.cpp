@@ -3,6 +3,7 @@
 #include "IValuable.h"
 #include "ISwitchable.h"
 #include "IStoppable.h"
+#include "IColorable.h"
 
 DeviceModel::DeviceModel(QObject* parent) : QAbstractListModel (parent){}
 
@@ -15,7 +16,9 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {TypeRole, "deviceType"}, 
         {SupportsStopRole, "supportsStop"}, 
         {IsMovingRole, "isMoving"},
-        {IsOnRole, "isOn"}
+        {IsOnRole, "isOn"},
+        {ColorRole, "deviceColor"},
+        {SupportsColorRole, "supportsColor"}
     };
 }
 
@@ -65,6 +68,14 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
             return false;
         case TypeRole:
             return static_cast<int>(device->getType());
+        case ColorRole:
+            if (auto* colorable = dynamic_cast<IColorable*>(device.get()))
+            {
+                return colorable->getColor();
+            }
+            return QVariant();
+        case SupportsColorRole:
+            return dynamic_cast<IColorable*>(device.get()) != nullptr;
     }
     
     return QVariant();

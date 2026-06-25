@@ -5,6 +5,8 @@
 #include "IDeviceFactory.h"
 #include "IStoppable.h"
 #include <iostream>
+#include <QColor>
+#include <QJsonArray>
 
 SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, QObject* parent) 
     : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel)
@@ -23,8 +25,35 @@ void SensorBridge::publishCommand(const QString& topic, const QString& payload)
         
         // Map QML command to the corresponding HA service call
         if (device->getType() == DeviceType::Light) {
-            std::string service = (p == "ON") ? "turn_on" : "turn_off";
-            m_haController.callService("light", service, entityId);
+            if (p == "ON") {
+                m_haController.callService("light", "turn_on", entityId);
+            } else if (p == "OFF") {
+                m_haController.callService("light", "turn_off", entityId);
+            } else if (p.starts_with("BRIGHTNESS:")) {
+                try {
+                    int percent = std::stoi(p.substr(11));
+                    int haBrightness = static_cast<int>(percent * 255.0f / 100.0f);
+                    QJsonObject serviceData;
+                    serviceData["brightness"] = haBrightness;
+                    m_haController.callService("light", "turn_on", entityId, serviceData);
+                } catch (...) {
+                    std::cerr << "[SensorBridge] Error parsing brightness command: " << p << std::endl;
+                }
+            } else if (p.starts_with("COLOR:")) {
+                std::string hexStr = p.substr(6);
+                QColor color(QString::fromStdString(hexStr));
+                if (color.isValid()) {
+                    QJsonArray rgbArray;
+                    rgbArray.append(color.red());
+                    rgbArray.append(color.green());
+                    rgbArray.append(color.blue());
+                    QJsonObject serviceData;
+                    serviceData["rgb_color"] = rgbArray;
+                    m_haController.callService("light", "turn_on", entityId, serviceData);
+                } else {
+                    std::cerr << "[SensorBridge] Invalid color format: " << hexStr << std::endl;
+                }
+            }
         }
         else if (device->getType() == DeviceType::Roller) {
             if (p == "STOP") {
@@ -107,18 +136,18 @@ void SensorBridge::stopDevice(const QString& topic)
     }
 }
 
-void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state)
+void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state, const QJsonObject& attributes)
 {
     if (auto* device = m_deviceModel.findByTopic(entityId))
     {
-        device->updateState(state.toStdString(), {});
+        device->updateState(state.toStdString(), attributes);
     }
     else
     {
         addDevice(type, friendlyName, entityId);
         if (auto* newDevice = m_deviceModel.findByTopic(entityId))
         {
-            newDevice->updateState(state.toStdString(), {});
+            newDevice->updateState(state.toStdString(), attributes);
         }
     }
 }

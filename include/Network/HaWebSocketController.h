@@ -44,8 +44,9 @@ signals:
      * @param entityId HA entity ID (e.g., "light.living_room_1").
      * @param friendlyName Device friendly name.
      * @param state Current state of the entity.
+     * @param attributes Entity attributes (containing brightness, colors, etc.).
      */
-    void deviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state);
+    void deviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state, const QJsonObject& attributes);
 
     /**
      * @brief Emitted when an existing device changes state in real-time.

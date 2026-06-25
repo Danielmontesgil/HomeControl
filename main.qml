@@ -94,44 +94,89 @@ ApplicationWindow {
                     Repeater {
                         model: sensorBridge.devices
                         delegate: Rectangle {
+                            id: lightDeviceDelegate
                             width: parent.width 
-                            height: model.deviceType === 0 ? 90 : 0
+                            height: model.deviceType === 0 ? (model.supportsColor ? 170 : (model.deviceValue !== undefined ? 130 : 90)) : 0
                             visible: model.deviceType === 0
                             color: "white"
                             radius: 12
                             border.color: "#E0E6ED"
                             
-                            RowLayout {
+                            readonly property string deviceTopic: model.topic
+                            readonly property string currentDeviceColor: model.deviceColor ?? ""
+                            
+                            ColumnLayout {
                                 anchors.fill: parent
                                 anchors.margins: 15
-                                spacing: 15
-                                Rectangle {
-                                    width: 45; height: 45; radius: 8
-                                    color: model.isOn ? "#FFF9C4" : "#E0E0E0"
-                                    Text { anchors.centerIn: parent; text: "💡"; font.pixelSize: 20; opacity: model.isOn ? 1.0 : 0.4 }
-                                }
-                                ColumnLayout {
+                                spacing: 10
+                                
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
-                                    Text { text: model.topic; font.pixelSize: 11; color: "#95A5A6" }
+                                    spacing: 15
+                                    Rectangle {
+                                        width: 45; height: 45; radius: 8
+                                        color: model.isOn ? (model.supportsColor ? model.deviceColor : "#FFF9C4") : "#E0E0E0"
+                                        Text { anchors.centerIn: parent; text: "💡"; font.pixelSize: 20; opacity: model.isOn ? 1.0 : 0.4 }
+                                    }
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
+                                        Text { text: model.topic; font.pixelSize: 11; color: "#95A5A6" }
+                                    }
+                                    Switch {
+                                        id: deviceSwitch
+                                        checked: model.isOn
+                                        
+                                        indicator: Rectangle {
+                                            implicitWidth: 40
+                                            implicitHeight: 22
+                                            radius: 11
+                                            color: deviceSwitch.checked ? "#4CAF50" : "#BDC3C7"
+                                            Rectangle {
+                                                x: deviceSwitch.checked ? parent.width - width - 2 : 2
+                                                y: 2
+                                                width: 18; height: 18; radius: 9; color: "white"
+                                                Behavior on x { NumberAnimation { duration: 150 } }
+                                            }
+                                        }
+                                        onClicked: sensorBridge.publishCommand(model.topic, checked ? "ON" : "OFF")
+                                    }
                                 }
-                                Switch {
-                                    id: deviceSwitch
-                                    checked: model.isOn
-                                    
-                                    indicator: Rectangle {
-                                        implicitWidth: 40
-                                        implicitHeight: 22
-                                        radius: 11
-                                        color: deviceSwitch.checked ? "#4CAF50" : "#BDC3C7"
-                                        Rectangle {
-                                            x: deviceSwitch.checked ? parent.width - width - 2 : 2
-                                            y: 2
-                                            width: 18; height: 18; radius: 9; color: "white"
-                                            Behavior on x { NumberAnimation { duration: 150 } }
+
+                                Slider {
+                                    id: brightnessSlider
+                                    Layout.fillWidth: true
+                                    value: model.deviceValue ?? 0.0
+                                    visible: model.deviceValue !== undefined
+                                    onPressedChanged: {
+                                        if (!pressed) {
+                                            sensorBridge.publishCommand(model.topic, "BRIGHTNESS:" + Math.round(value * 100))
                                         }
                                     }
-                                    onClicked: sensorBridge.publishCommand(model.topic, checked ? "ON" : "OFF")
+                                }
+
+                                Row {
+                                    spacing: 10
+                                    visible: model.supportsColor === true
+                                    z: 1 // Force this overlay on top of any Slider bounds to intercept clicks
+                                    
+                                    Repeater {
+                                        model: ["#FF3B30", "#34C759", "#007AFF", "#FFCC00", "#AF52DE", "#FFFFFF"]
+                                        delegate: Rectangle {
+                                            width: 18; height: 18; radius: 9
+                                            color: modelData
+                                            border.color: lightDeviceDelegate.currentDeviceColor === modelData ? "#2C3E50" : "#BDC3C7"
+                                            border.width: lightDeviceDelegate.currentDeviceColor === modelData ? 2 : 1
+                                            
+                                            MouseArea {
+                                                anchors.fill: parent
+                                                onClicked: {
+                                                    console.log("QML: Clicking color " + modelData + " for device " + lightDeviceDelegate.deviceTopic);
+                                                    sensorBridge.publishCommand(lightDeviceDelegate.deviceTopic, "COLOR:" + modelData);
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

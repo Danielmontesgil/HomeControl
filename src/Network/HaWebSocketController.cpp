@@ -180,7 +180,26 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                 QString type;
                 if (entityId.startsWith("light."))
                 {
+                    // Check if it is a smart light with dimming and color capabilities
                     type = "Light";
+                    if (attributes.contains("supported_color_modes"))
+                    {
+                        QJsonArray modes = attributes["supported_color_modes"].toArray();
+                        bool hasColor = false;
+                        for (const auto& modeVal : modes)
+                        {
+                            QString mode = modeVal.toString();
+                            if (mode == "color_temp" || mode == "hs" || mode == "rgb" || mode == "rgbw" || mode == "xy")
+                            {
+                                hasColor = true;
+                                break;
+                            }
+                        }
+                        if (hasColor)
+                        {
+                            type = "DimmableColorLight";
+                        }
+                    }
                 }
                 else if (entityId.startsWith("cover."))
                 {
@@ -189,7 +208,7 @@ void HaWebSocketController::parseHaMessage(const QString& message)
 
                 if (!type.isEmpty())
                 {
-                    emit deviceDiscovered(type, entityId, friendlyName, state);
+                    emit deviceDiscovered(type, entityId, friendlyName, state, attributes);
                 }
             }
         }

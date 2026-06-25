@@ -18,7 +18,9 @@ public:
 		TypeRole,
 		SupportsStopRole,
 		IsMovingRole,
-		IsOnRole
+		IsOnRole,
+		ColorRole,
+		SupportsColorRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);
