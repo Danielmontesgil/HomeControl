@@ -20,7 +20,10 @@ public:
 		IsMovingRole,
 		IsOnRole,
 		ColorRole,
-		SupportsColorRole
+		SupportsColorRole,
+		VacuumStateRole,
+		BatteryLevelRole,
+		FanSpeedRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);

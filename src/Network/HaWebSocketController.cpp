@@ -205,6 +205,10 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                 {
                     type = "Roller";
                 }
+                else if (entityId.startsWith("vacuum."))
+                {
+                    type = "Vacuum";
+                }
 
                 if (!type.isEmpty())
                 {

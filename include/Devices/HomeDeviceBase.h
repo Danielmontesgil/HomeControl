@@ -8,7 +8,8 @@
 enum class DeviceType
 {
     Light,
-    Roller
+    Roller,
+    Vacuum
 };
 
 class HomeDeviceBase : public QObject

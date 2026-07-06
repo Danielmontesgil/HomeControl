@@ -25,6 +25,9 @@ public:
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
 
+    void setHaCredentials(const QString& url, const QString& token);
+    Q_INVOKABLE QString getHaMapUrl(const QString& entityId) const;
+
 public slots:
     void onDeviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state, const QJsonObject& attributes);
     void onDeviceStateChanged(const QString& entityId, const QString& state, const QJsonObject& attributes);
@@ -36,5 +39,7 @@ private:
     IHaController& m_haController;
     IDeviceFactory& m_deviceFactory;
     DeviceModel& m_deviceModel;
+    QString m_haUrl;
+    QString m_haToken;
 };
 

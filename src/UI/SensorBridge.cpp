@@ -69,6 +69,27 @@ void SensorBridge::publishCommand(const QString& topic, const QString& payload)
                 }
             }
         }
+        else if (device->getType() == DeviceType::Vacuum) {
+            if (p == "START") {
+                m_haController.callService("vacuum", "start", entityId);
+            } else if (p == "PAUSE") {
+                m_haController.callService("vacuum", "pause", entityId);
+            } else if (p == "RETURN" || p == "DOCK") {
+                m_haController.callService("vacuum", "return_to_base", entityId);
+            } else if (p == "LOCATE") {
+                m_haController.callService("vacuum", "locate", entityId);
+            } else if (p.starts_with("FAN_SPEED:")) {
+                std::string speed = p.substr(10);
+                QJsonObject serviceData;
+                serviceData["fan_speed"] = QString::fromStdString(speed);
+                m_haController.callService("vacuum", "set_fan_speed", entityId, serviceData);
+            } else if (p.starts_with("SEND_COMMAND:")) {
+                std::string cmd = p.substr(13);
+                QJsonObject serviceData;
+                serviceData["command"] = QString::fromStdString(cmd);
+                m_haController.callService("vacuum", "send_command", entityId, serviceData);
+            }
+        }
     }
 }
 
@@ -158,5 +179,25 @@ void SensorBridge::onDeviceStateChanged(const QString& entityId, const QString& 
     {
         device->updateState(state.toStdString(), attributes);
     }
+}
+
+void SensorBridge::setHaCredentials(const QString& url, const QString& token)
+{
+    m_haUrl = url;
+    m_haToken = token;
+}
+
+QString SensorBridge::getHaMapUrl(const QString& entityId) const
+{
+    QString httpUrl = m_haUrl;
+    httpUrl.replace("ws://", "http://");
+    httpUrl.replace("wss://", "https://");
+    httpUrl.replace("/api/websocket", "/api/camera_proxy/" + entityId);
+    
+    if (!m_haToken.isEmpty())
+    {
+        httpUrl += "?token=" + m_haToken;
+    }
+    return httpUrl;
 }
 

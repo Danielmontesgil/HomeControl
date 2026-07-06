@@ -20,6 +20,8 @@
 #include "TemperatureSensor.h"
 #include "SensorBridge.h"
 #include "DeviceModel.h"
+#include "VacuumDevice.h"
+#include "HaImageProvider.h"
 
 using namespace Qt::StringLiterals;
 
@@ -64,6 +66,9 @@ int main(int argc, char *argv[]) {
     deviceFactory.registerType("Roller", [](const std::string& id, const std::string& topic) {
         return std::make_unique<RollerDevice>(id, topic);
     });
+    deviceFactory.registerType("Vacuum", [](const std::string& id, const std::string& topic) {
+        return std::make_unique<VacuumDevice>(id, topic);
+    });
     
     // Register type for QML model roles exposure
     qmlRegisterType<DeviceModel>("SensorsApp", 1, 0, "DeviceModel");
@@ -93,9 +98,11 @@ int main(int argc, char *argv[]) {
         std::cerr << "[Warning] config.json not found, using default URL and empty token." << std::endl;
     }
 
+    bridge.setHaCredentials(haUrl, haToken);
     haController.connectToHa(haUrl.toStdString(), haToken.toStdString());
 
     QQmlApplicationEngine engine;
+    engine.addImageProvider("hacamera", new HaImageProvider(haUrl, haToken));
     
     engine.rootContext()->setContextProperty("sensorBridge", &bridge);
 

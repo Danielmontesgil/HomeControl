@@ -4,6 +4,7 @@
 #include "ISwitchable.h"
 #include "IStoppable.h"
 #include "IColorable.h"
+#include "VacuumDevice.h"
 
 DeviceModel::DeviceModel(QObject* parent) : QAbstractListModel (parent){}
 
@@ -18,7 +19,10 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {IsMovingRole, "isMoving"},
         {IsOnRole, "isOn"},
         {ColorRole, "deviceColor"},
-        {SupportsColorRole, "supportsColor"}
+        {SupportsColorRole, "supportsColor"},
+        {VacuumStateRole, "vacuumState"},
+        {BatteryLevelRole, "batteryLevel"},
+        {FanSpeedRole, "fanSpeed"}
     };
 }
 
@@ -76,6 +80,24 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
             return QVariant();
         case SupportsColorRole:
             return dynamic_cast<IColorable*>(device.get()) != nullptr;
+        case VacuumStateRole:
+            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            {
+                return vacuum->getVacuumState();
+            }
+            return QVariant();
+        case BatteryLevelRole:
+            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            {
+                return vacuum->getBatteryLevel();
+            }
+            return QVariant();
+        case FanSpeedRole:
+            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            {
+                return vacuum->getFanSpeed();
+            }
+            return QVariant();
     }
     
     return QVariant();
