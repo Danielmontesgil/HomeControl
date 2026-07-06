@@ -4,12 +4,13 @@
 #include "HomeDeviceBase.h"
 #include "IDeviceFactory.h"
 #include "IStoppable.h"
+#include "ISettingsManager.h"
 #include <iostream>
 #include <QColor>
 #include <QJsonArray>
 
-SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, QObject* parent) 
-    : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel)
+SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent) 
+    : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel), m_settingsManager(settingsManager)
 {
 }
 
@@ -165,11 +166,21 @@ void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entity
     }
     else
     {
-        addDevice(type, friendlyName, entityId);
+        std::string finalName = m_settingsManager.getAlias(entityId.toStdString(), friendlyName.toStdString());
+        addDevice(type, QString::fromStdString(finalName), entityId);
         if (auto* newDevice = m_deviceModel.findByTopic(entityId))
         {
             newDevice->updateState(state.toStdString(), attributes);
         }
+    }
+}
+
+void SensorBridge::renameDevice(const QString& topic, const QString& newName)
+{
+    if (auto* device = m_deviceModel.findByTopic(topic))
+    {
+        device->setId(newName.toStdString());
+        m_settingsManager.saveAlias(topic.toStdString(), newName.toStdString());
     }
 }
 

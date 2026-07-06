@@ -24,6 +24,7 @@ public:
     virtual ~HomeDeviceBase() = default;
     
     std::string getId() const { return id; }
+    void setId(const std::string& newId) { id = newId; notifyUpdate(); }
     QString getQStringId() const { return QString::fromStdString(id); }
     QString getQStringTopic() const { return QString::fromStdString(topic); }
     

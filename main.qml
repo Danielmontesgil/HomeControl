@@ -16,6 +16,7 @@ ApplicationWindow {
     property int _rollerCount: sensorBridge.getCountByType(1)
     property int _vacuumCount: sensorBridge.getCountByType(2)
     property var activeVacuumDevice: null
+    property string deviceToRename: ""
 
     Connections {
         target: sensorBridge
@@ -123,7 +124,22 @@ ApplicationWindow {
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 5
+                                            Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
+                                            Button {
+                                                text: "✏️"
+                                                flat: true
+                                                implicitWidth: 24; implicitHeight: 24
+                                                scale: 0.8
+                                                onClicked: {
+                                                    deviceToRename = model.topic
+                                                    aliasInput.text = model.deviceId
+                                                    renameDialog.open()
+                                                }
+                                            }
+                                        }
                                         Text { text: model.topic; font.pixelSize: 11; color: "#95A5A6" }
                                     }
                                     Switch {
@@ -226,7 +242,22 @@ ApplicationWindow {
                                         color: model.isMoving ? "#BBDEFB" : "#E0E0E0"
                                         Text { anchors.centerIn: parent; text: "🪟"; font.pixelSize: 16; opacity: model.isMoving ? 1.0 : 0.5 } 
                                     }
-                                    Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; Layout.fillWidth: true; elide: Text.ElideRight; opacity: model.isMoving ? 1.0 : 0.7 }
+                                    RowLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 5
+                                        Text { text: model.deviceId; font.weight: Font.Bold; font.pixelSize: 16; Layout.fillWidth: true; elide: Text.ElideRight; opacity: model.isMoving ? 1.0 : 0.7 }
+                                        Button {
+                                            text: "✏️"
+                                            flat: true
+                                            implicitWidth: 24; implicitHeight: 24
+                                            scale: 0.8
+                                            onClicked: {
+                                                deviceToRename = model.topic
+                                                aliasInput.text = model.deviceId
+                                                renameDialog.open()
+                                            }
+                                        }
+                                    }
                                     Text { text: Math.round((model.deviceValue ?? 0) * 100) + "%"; color: model.isMoving ? "#2196F3" : "#757575"; font.weight: Font.Black }
                                 }
                                 Slider {
@@ -323,7 +354,22 @@ ApplicationWindow {
                                     
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        Text { text: model.deviceId ?? ""; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            spacing: 5
+                                            Text { text: model.deviceId ?? ""; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
+                                            Button {
+                                                text: "✏️"
+                                                flat: true
+                                                implicitWidth: 24; implicitHeight: 24
+                                                scale: 0.8
+                                                onClicked: {
+                                                    deviceToRename = model.topic
+                                                    aliasInput.text = model.deviceId
+                                                    renameDialog.open()
+                                                }
+                                            }
+                                        }
                                         RowLayout {
                                             spacing: 5
                                             Text { 
@@ -660,6 +706,51 @@ ApplicationWindow {
                     }
                 }
             }
+        }
+    }
+
+    Dialog {
+        id: renameDialog
+        title: "Renombrar dispositivo"
+        standardButtons: Dialog.Save | Dialog.Cancel
+        anchors.centerIn: parent
+        modal: true
+        
+        onOpened: aliasInput.forceActiveFocus()
+        
+        background: Rectangle {
+            color: "white"
+            radius: 12
+            border.color: "#E0E6ED"
+        }
+
+        ColumnLayout {
+            spacing: 12
+            anchors.fill: parent
+            anchors.margins: 10
+            Label {
+                text: "Introduce el nuevo nombre visual:"
+                font.weight: Font.Bold
+                color: "#2C3E50"
+            }
+            TextField {
+                id: aliasInput
+                focus: true
+                placeholderText: "Alias"
+                color: "#2C3E50"
+                placeholderTextColor: "#95A5A6"
+                Layout.fillWidth: true
+                background: Rectangle {
+                    implicitWidth: 200
+                    implicitHeight: 40
+                    radius: 6
+                    border.color: aliasInput.activeFocus ? "#1A237E" : "#BDC3C7"
+                }
+            }
+        }
+        
+        onAccepted: {
+            sensorBridge.renameDevice(deviceToRename, aliasInput.text)
         }
     }
 

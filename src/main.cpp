@@ -22,6 +22,7 @@
 #include "DeviceModel.h"
 #include "VacuumDevice.h"
 #include "HaImageProvider.h"
+#include "JsonSettingsManager.h"
 
 using namespace Qt::StringLiterals;
 
@@ -73,8 +74,11 @@ int main(int argc, char *argv[]) {
     // Register type for QML model roles exposure
     qmlRegisterType<DeviceModel>("SensorsApp", 1, 0, "DeviceModel");
     
+    // Initialize Settings Manager
+    JsonSettingsManager settings("device_settings.json");
+    
     // Initialize SensorBridge (injecting dependencies)
-    SensorBridge bridge(deviceFactory, deviceModel, haController);
+    SensorBridge bridge(deviceFactory, deviceModel, haController, settings);
     
     // Connect HA controller signals to Bridge slots
     // This must be done BEFORE connecting to prevent missing the initial state dump (get_states)

@@ -4,6 +4,19 @@
 #include "HomeDeviceBase.h"
 #include "DeviceModel.h"
 #include "IDeviceFactory.h"
+#include "ISettingsManager.h"
+
+class MockSettingsManager : public ISettingsManager {
+public:
+    void saveAlias(const std::string& entityId, const std::string& alias) override {}
+    std::string getAlias(const std::string& entityId, const std::string& defaultAlias) override {
+        return defaultAlias;
+    }
+    void saveVisibility(const std::string& entityId, bool visible) override {}
+    bool getVisibility(const std::string& entityId, bool defaultVisible) override {
+        return defaultVisible;
+    }
+};
 
 // Mock para interceptar las llamadas al controlador MQTT desde el Bridge
 class MockHaController : public IHaController {
@@ -48,8 +61,8 @@ protected:
     MockDeviceFactory mockFactory;
     DeviceModel deviceModel;
     MockHaController mockHa;
-    // No necesitamos pasar parent (nullptr por defecto)
-    SensorBridge bridge{mockFactory, deviceModel, mockHa};
+    MockSettingsManager mockSettings;
+    SensorBridge bridge{mockFactory, deviceModel, mockHa, mockSettings};
 };
 
 // Verificamos que funciona con diferentes niveles de tópicos

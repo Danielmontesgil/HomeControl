@@ -5,6 +5,7 @@
 class DeviceModel;
 class IDeviceFactory;
 class IHaController;
+class ISettingsManager;
 
 class SensorBridge : public QObject
 {
@@ -13,7 +14,7 @@ class SensorBridge : public QObject
     Q_PROPERTY(DeviceModel* devices READ getDevices CONSTANT)
     
 public:
-    explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, QObject* parent = nullptr);
+    explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent = nullptr);
     virtual ~SensorBridge() = default;
     
     Q_INVOKABLE void publishCommand(const QString& topic, const QString& payload);
@@ -22,6 +23,7 @@ public:
     Q_INVOKABLE int getCountByType(int type) const;
     Q_INVOKABLE void setAllDevicesState(int type, const QString& payload);
     Q_INVOKABLE void stopDevice(const QString& topic);
+    Q_INVOKABLE void renameDevice(const QString& topic, const QString& newName);
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
 
@@ -39,6 +41,7 @@ private:
     IHaController& m_haController;
     IDeviceFactory& m_deviceFactory;
     DeviceModel& m_deviceModel;
+    ISettingsManager& m_settingsManager;
     QString m_haUrl;
     QString m_haToken;
 };
