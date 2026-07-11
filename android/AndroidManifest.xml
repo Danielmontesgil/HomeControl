@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          android:versionCode="1"
+          android:versionName="1.0">
+
+
+
+    <!-- Permisos esenciales para comunicación local y WebSocket con Home Assistant -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+
+    <application android:label="HomeControl"
+                 android:allowBackup="true"
+                 android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+
+        <activity android:name="org.qtproject.qt.android.bindings.QtActivity"
+                  android:label="HomeControl"
+                  android:configChanges="orientation|uiMode|screenSize|screenLayout|locale|fontScale|keyboard|keyboardHidden|navigation|layoutDirection"
+                  android:launchMode="singleTop"
+                  android:screenOrientation="portrait"
+                  android:exported="true">
+            
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <!-- Metadata requerida por el cargador de Qt en Android -->
+            <meta-data android:name="android.app.lib_name" android:value="HomeControl"/>
+        </activity>
+    </application>
+</manifest>

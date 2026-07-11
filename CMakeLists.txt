@@ -12,6 +12,7 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 WebSockets)
 qt_policy(SET QTP0001 NEW)
+qt_policy(SET QTP0002 NEW)
 qt_standard_project_setup()
 
 include_directories(
@@ -34,6 +35,9 @@ set(PROJECT_SOURCES
     src/Devices/DeviceFactory.cpp
     src/Devices/LightDevice.cpp
     src/Devices/RollerDevice.cpp
+    src/Devices/DimmableColorLightDevice.cpp
+    src/Devices/VacuumDevice.cpp
+    src/Devices/JsonSettingsManager.cpp
     include/Legacy/ISensor.h 
     include/Legacy/LuminositySensor.h 
     include/Legacy/TemperatureSensor.h 
@@ -50,11 +54,17 @@ set(PROJECT_SOURCES
     include/Devices/IStoppable.h
     include/Devices/IValuable.h
     include/Devices/ISwitchable.h
+    include/Devices/IColorable.h
     include/Devices/LightDevice.h
     include/Devices/RollerDevice.h
+    include/Devices/DimmableColorLightDevice.h
+    include/Devices/VacuumDevice.h
+    include/UI/HaImageProvider.h
+    include/Devices/ISettingsManager.h
+    include/Devices/JsonSettingsManager.h
 )
 
-add_executable(HomeControl ${PROJECT_SOURCES})
+qt_add_executable(HomeControl ${PROJECT_SOURCES})
 
 qt_add_qml_module(HomeControl
     URI SensorsApp
@@ -68,7 +78,15 @@ target_link_libraries(HomeControl
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets
 )
 
-# --- Unit Testing (GoogleTest) ---
+if(ANDROID)
+    set_property(TARGET HomeControl PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+    set_property(TARGET HomeControl PROPERTY QT_ANDROID_COMPILE_SDK_VERSION "36")
+    set_property(TARGET HomeControl PROPERTY QT_ANDROID_TARGET_SDK_VERSION "36")
+    set_property(TARGET HomeControl PROPERTY QT_ANDROID_MIN_SDK_VERSION "28")
+    set_property(TARGET HomeControl PROPERTY QT_ANDROID_PACKAGE_NAME "com.danielmontes.homecontrol")
+endif()
+
+# --- Unit Testing (GoogleTest) -
 enable_testing()
 
 include(FetchContent)
@@ -89,6 +107,11 @@ add_executable(HomeControlTests
     tests/RollerDeviceTest.cpp
     tests/LightDeviceTest.cpp
     tests/SensorBridgeTest.cpp
+    tests/VacuumDeviceTest.cpp
+    tests/JsonSettingsManagerTest.cpp
+    tests/DimmableColorLightDeviceTest.cpp
+    tests/DeviceFactoryTest.cpp
+    tests/DeviceModelTest.cpp
     ${LIB_SOURCES}
 )
 
@@ -99,6 +122,7 @@ target_include_directories(HomeControlTests PRIVATE
     include/Mqtt
     include/UI
     include/Legacy
+        
 )
 
 target_link_libraries(HomeControlTests
