@@ -4,9 +4,10 @@ import QtQuick.Layouts
 import SensorsApp 1.0
 
 ApplicationWindow {
+    id: window
     visible: true
-    width: 450
-    height: 750
+    width: (Qt.platform.os === "android" || Qt.platform.os === "ios") ? Screen.width : 450
+    height: (Qt.platform.os === "android" || Qt.platform.os === "ios") ? Screen.height : 750
     title: "HomeControl Smart"
 
     background: Rectangle { color: "#F5F7FA" }
@@ -33,6 +34,7 @@ ApplicationWindow {
         anchors.fill: parent
         anchors.margins: 20
         spacing: 20
+        visible: tabBar.currentIndex === 0
 
         ColumnLayout {
             Layout.fillWidth: true
@@ -131,8 +133,14 @@ ApplicationWindow {
                                             Button {
                                                 text: "✏️"
                                                 flat: true
-                                                implicitWidth: 24; implicitHeight: 24
-                                                scale: 0.8
+                                                implicitWidth: 44; implicitHeight: 44
+                                                contentItem: Text {
+                                                    text: parent.text
+                                                    font.pixelSize: 14
+                                                    horizontalAlignment: Text.AlignHCenter
+                                                    verticalAlignment: Text.AlignVCenter
+                                                    color: "#7F8C8D"
+                                                }
                                                 onClicked: {
                                                     deviceToRename = model.topic
                                                     aliasInput.text = model.deviceId
@@ -163,16 +171,40 @@ ApplicationWindow {
                                 }
 
                                 Slider {
-                                    id: brightnessSlider
-                                    Layout.fillWidth: true
-                                    value: model.deviceValue ?? 0.0
-                                    visible: model.deviceValue !== undefined
-                                    onPressedChanged: {
-                                        if (!pressed) {
-                                            sensorBridge.publishCommand(model.topic, "BRIGHTNESS:" + Math.round(value * 100))
-                                        }
-                                    }
-                                }
+                                     id: brightnessSlider
+                                     Layout.fillWidth: true
+                                     value: model.deviceValue ?? 0.0
+                                     visible: model.deviceValue !== undefined
+                                     onPressedChanged: {
+                                         if (!pressed) {
+                                             sensorBridge.publishCommand(model.topic, "BRIGHTNESS:" + Math.round(value * 100))
+                                         }
+                                     }
+                                     handle: Rectangle {
+                                         x: brightnessSlider.leftPadding + brightnessSlider.visualPosition * (brightnessSlider.availableWidth - width)
+                                         y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                         implicitWidth: 32; implicitHeight: 32
+                                         radius: 16
+                                         color: brightnessSlider.pressed ? "#1A237E" : "#2196F3"
+                                         border.color: "white"
+                                         border.width: 3
+                                     }
+                                     background: Rectangle {
+                                         x: brightnessSlider.leftPadding
+                                         y: brightnessSlider.topPadding + brightnessSlider.availableHeight / 2 - height / 2
+                                         implicitWidth: 200; implicitHeight: 8
+                                         width: brightnessSlider.availableWidth
+                                         height: implicitHeight
+                                         radius: 4
+                                         color: "#E0E0E0"
+                                         Rectangle {
+                                             width: brightnessSlider.visualPosition * parent.width
+                                             height: parent.height
+                                             color: "#2196F3"
+                                             radius: 4
+                                         }
+                                     }
+                                 }
 
                                 Row {
                                     spacing: 10
@@ -215,11 +247,36 @@ ApplicationWindow {
                             font.pixelSize: 12; font.weight: Font.Bold; color: "#9E9E9E"
                             Layout.fillWidth: true
                         }
-                        Slider {
-                            visible: _rollerCount > 1
-                            Layout.preferredWidth: 100
-                            onMoved: sensorBridge.setAllDevicesState(1, Math.round(value * 100).toString())
-                        }
+                         Slider {
+                             id: masterRollerSlider
+                             visible: _rollerCount > 1
+                             Layout.preferredWidth: 100
+                             onMoved: sensorBridge.setAllDevicesState(1, Math.round(value * 100).toString())
+                             handle: Rectangle {
+                                 x: masterRollerSlider.leftPadding + masterRollerSlider.visualPosition * (masterRollerSlider.availableWidth - width)
+                                 y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
+                                 implicitWidth: 24; implicitHeight: 24
+                                 radius: 12
+                                 color: masterRollerSlider.pressed ? "#1A237E" : "#2196F3"
+                                 border.color: "white"
+                                 border.width: 2
+                             }
+                             background: Rectangle {
+                                 x: masterRollerSlider.leftPadding
+                                 y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
+                                 implicitWidth: 100; implicitHeight: 6
+                                 width: masterRollerSlider.availableWidth
+                                 height: implicitHeight
+                                 radius: 3
+                                 color: "#E0E0E0"
+                                 Rectangle {
+                                     width: masterRollerSlider.visualPosition * parent.width
+                                     height: parent.height
+                                     color: "#2196F3"
+                                     radius: 3
+                                 }
+                             }
+                         }
                     }
 
                     Repeater {
@@ -249,8 +306,14 @@ ApplicationWindow {
                                         Button {
                                             text: "✏️"
                                             flat: true
-                                            implicitWidth: 24; implicitHeight: 24
-                                            scale: 0.8
+                                            implicitWidth: 44; implicitHeight: 44
+                                            contentItem: Text {
+                                                text: parent.text
+                                                font.pixelSize: 14
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                                color: "#7F8C8D"
+                                            }
                                             onClicked: {
                                                 deviceToRename = model.topic
                                                 aliasInput.text = model.deviceId
@@ -261,18 +324,40 @@ ApplicationWindow {
                                     Text { text: Math.round((model.deviceValue ?? 0) * 100) + "%"; color: model.isMoving ? "#2196F3" : "#757575"; font.weight: Font.Black }
                                 }
                                 Slider {
-                                    id: rollerSlider
-                                    Layout.fillWidth: true
-                                    value: model.deviceValue ?? 0.0
-                                    // Bloqueamos la interacción directa mientras se mueve
-                                    enabled: !model.isMoving
-                                    
-                                    onPressedChanged: {
-                                        if (!pressed) { // Al soltar
-                                            sensorBridge.publishCommand(model.topic, Math.round(value * 100).toString())
-                                        }
-                                    }
-                                }
+                                     id: rollerSlider
+                                     Layout.fillWidth: true
+                                     value: model.deviceValue ?? 0.0
+                                     enabled: !model.isMoving
+                                     onPressedChanged: {
+                                         if (!pressed) {
+                                             sensorBridge.publishCommand(model.topic, Math.round(value * 100).toString())
+                                         }
+                                     }
+                                     handle: Rectangle {
+                                         x: rollerSlider.leftPadding + rollerSlider.visualPosition * (rollerSlider.availableWidth - width)
+                                         y: rollerSlider.topPadding + rollerSlider.availableHeight / 2 - height / 2
+                                         implicitWidth: 32; implicitHeight: 32
+                                         radius: 16
+                                         color: rollerSlider.pressed ? "#1A237E" : "#2196F3"
+                                         border.color: "white"
+                                         border.width: 3
+                                     }
+                                     background: Rectangle {
+                                         x: rollerSlider.leftPadding
+                                         y: rollerSlider.topPadding + rollerSlider.availableHeight / 2 - height / 2
+                                         implicitWidth: 200; implicitHeight: 8
+                                         width: rollerSlider.availableWidth
+                                         height: implicitHeight
+                                         radius: 4
+                                         color: "#E0E0E0"
+                                         Rectangle {
+                                             width: rollerSlider.visualPosition * parent.width
+                                             height: parent.height
+                                             color: "#2196F3"
+                                             radius: 4
+                                         }
+                                     }
+                                 }
                                 
                                 Button {
                                     visible: model.supportsStop && model.isMoving
@@ -359,16 +444,22 @@ ApplicationWindow {
                                             spacing: 5
                                             Text { text: model.deviceId ?? ""; font.weight: Font.Bold; font.pixelSize: 16; color: "#2C3E50"; Layout.fillWidth: true; elide: Text.ElideRight }
                                             Button {
-                                                text: "✏️"
-                                                flat: true
-                                                implicitWidth: 24; implicitHeight: 24
-                                                scale: 0.8
-                                                onClicked: {
-                                                    deviceToRename = model.topic
-                                                    aliasInput.text = model.deviceId
-                                                    renameDialog.open()
-                                                }
-                                            }
+                                             text: "✏️"
+                                             flat: true
+                                             implicitWidth: 44; implicitHeight: 44
+                                             contentItem: Text {
+                                                 text: parent.text
+                                                 font.pixelSize: 14
+                                                 horizontalAlignment: Text.AlignHCenter
+                                                 verticalAlignment: Text.AlignVCenter
+                                                 color: "#7F8C8D"
+                                             }
+                                             onClicked: {
+                                                 deviceToRename = model.topic
+                                                 aliasInput.text = model.deviceId
+                                                 renameDialog.open()
+                                             }
+                                         }
                                         }
                                         RowLayout {
                                             spacing: 5
@@ -707,6 +798,72 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    // PESTAÑA 1: ESCENAS INTELIGENTES
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 20
+        spacing: 20
+        visible: tabBar.currentIndex === 1
+        
+        Item { Layout.fillHeight: true }
+        Text { text: "🎬"; font.pixelSize: 64; Layout.alignment: Qt.AlignHCenter }
+        Text { text: "Escenas Inteligentes"; font.pixelSize: 24; font.weight: Font.Bold; color: "#1A237E"; Layout.alignment: Qt.AlignHCenter }
+        Text { text: "Automatiza tu hogar con un solo toque."; font.pixelSize: 14; color: "#7F8C8D"; Layout.alignment: Qt.AlignHCenter }
+        Item { Layout.fillHeight: true }
+    }
+
+    // PESTAÑA 2: CONFIGURACIÓN
+    ColumnLayout {
+        anchors.fill: parent
+        anchors.margins: 20
+        spacing: 20
+        visible: tabBar.currentIndex === 2
+
+        Text { text: "Configuración de Red"; font.pixelSize: 28; font.weight: Font.Black; color: "#1A237E" }
+        Text { text: "Enlaza la aplicación móvil con tu servidor de Home Assistant."; font.pixelSize: 13; color: "#7F8C8D"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+
+        ColumnLayout {
+            Layout.fillWidth: true; spacing: 5
+            Label { text: "URL del WebSocket de Home Assistant:"; font.weight: Font.Bold; color: "#34495E" }
+            TextField {
+                id: haUrlInput
+                text: sensorBridge.getSavedHaUrl()
+                placeholderText: "ws://192.168.178.20:8123/api/websocket"
+                Layout.fillWidth: true; color: "#2C3E50"; font.pixelSize: 14
+                background: Rectangle { implicitHeight: 44; radius: 6; border.color: haUrlInput.activeFocus ? "#1A237E" : "#BDC3C7"; border.width: haUrlInput.activeFocus ? 2 : 1 }
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true; spacing: 5
+            Label { text: "Token de Acceso de Larga Duración (LLAT):"; font.weight: Font.Bold; color: "#34495E" }
+            TextField {
+                id: haTokenInput
+                text: sensorBridge.getSavedHaToken()
+                placeholderText: "Token de HA"
+                Layout.fillWidth: true; color: "#2C3E50"; font.pixelSize: 14
+                echoMode: TextInput.PasswordEchoOnEdit
+                background: Rectangle { implicitHeight: 44; radius: 6; border.color: haTokenInput.activeFocus ? "#1A237E" : "#BDC3C7"; border.width: haTokenInput.activeFocus ? 2 : 1 }
+            }
+        }
+
+        Button {
+            text: "Guardar y Conectar"
+            Layout.fillWidth: true; implicitHeight: 48
+            contentItem: Text { text: parent.text; font.weight: Font.Bold; font.pixelSize: 16; color: "white"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+            background: Rectangle { color: parent.pressed ? "#0D47A1" : "#1A237E"; radius: 8 }
+            onClicked: {
+                sensorBridge.saveHaCredentials(haUrlInput.text, haTokenInput.text)
+                statusText.text = "Guardado. Intentando conectar..."
+                statusTimer.start()
+            }
+        }
+
+        Text { id: statusText; text: ""; font.pixelSize: 12; color: "#4CAF50"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
+        Timer { id: statusTimer; interval: 3000; onTriggered: statusText.text = "" }
+        Item { Layout.fillHeight: true }
     }
 
     Dialog {

@@ -1,5 +1,8 @@
 #pragma once
-#include <QQuickImageProvider>
+#include <QQuickAsyncImageProvider>
+#include <QQuickImageResponse>
+#include <QRunnable>
+#include <QThreadPool>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -7,12 +10,71 @@
 #include <QImage>
 #include <QUrl>
 #include <QString>
+#include <QQuickTextureFactory>
 
-class HaImageProvider : public QQuickImageProvider
+/**
+ * @brief Represents an asynchronous image load response running on a worker thread.
+ * Performs the HTTP fetch from HA and signals completion to QtQuick.
+ */
+class HaImageResponse : public QQuickImageResponse, public QRunnable
+{
+public:
+    HaImageResponse(const QString& url, const QString& token)
+        : m_url(url), m_token(token)
+    {
+        setAutoDelete(false); // Managed by QtQuick framework wrapper
+    }
+
+    ~HaImageResponse() override = default;
+
+    void run() override
+    {
+        QNetworkAccessManager manager;
+        QNetworkRequest request((QUrl(m_url)));
+        if (!m_token.isEmpty())
+        {
+            request.setRawHeader("Authorization", "Bearer " + m_token.toUtf8());
+        }
+
+        QNetworkReply* reply = manager.get(request);
+
+        QEventLoop loop;
+        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+        loop.exec(); // Safely blocks the background worker thread, NOT the main GUI event loop
+
+        if (reply->error() == QNetworkReply::NoError)
+        {
+            m_image.loadFromData(reply->readAll());
+        }
+        else
+        {
+            m_image = QImage(200, 200, QImage::Format_RGB32);
+            m_image.fill(QColor("#ECEFF1"));
+        }
+
+        reply->deleteLater();
+        emit finished(); // Notify QtQuick that the texture is ready to be bound
+    }
+
+    QQuickTextureFactory* textureFactory() const override
+    {
+        return QQuickTextureFactory::textureFactoryForImage(m_image);
+    }
+
+private:
+    QString m_url;
+    QString m_token;
+    QImage m_image;
+};
+
+/**
+ * @brief Async Image Provider for protected resources like map proxies in QML.
+ */
+class HaImageProvider : public QQuickAsyncImageProvider
 {
 public:
     HaImageProvider(const QString& haUrl, const QString& haToken)
-        : QQuickImageProvider(QQuickImageProvider::Image), m_haUrl(haUrl), m_haToken(haToken)
+        : m_haUrl(haUrl), m_haToken(haToken)
     {
         m_haUrl.replace("ws://", "http://");
         m_haUrl.replace("wss://", "https://");
@@ -24,38 +86,13 @@ public:
 
     ~HaImageProvider() override = default;
 
-    QImage requestImage(const QString& id, QSize* size, const QSize& requestedSize) override
+    QQuickImageResponse* requestImageResponse(const QString& id, const QSize& requestedSize) override
     {
-        QNetworkAccessManager manager;
+        Q_UNUSED(requestedSize);
         QString targetUrl = m_haUrl + "/api/camera_proxy/" + id;
-        
-        QNetworkRequest request((QUrl(targetUrl)));
-        request.setRawHeader("Authorization", "Bearer " + m_haToken.toUtf8());
-        
-        QNetworkReply* reply = manager.get(request);
-        
-        QEventLoop loop;
-        QObject::connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-        loop.exec();
-        
-        QImage image;
-        if (reply->error() == QNetworkReply::NoError)
-        {
-            image.loadFromData(reply->readAll());
-        }
-        else
-        {
-            image = QImage(200, 200, QImage::Format_RGB32);
-            image.fill(QColor("#ECEFF1"));
-        }
-        
-        if (size)
-        {
-            *size = image.size();
-        }
-        
-        reply->deleteLater();
-        return image;
+        auto* response = new HaImageResponse(targetUrl, m_haToken);
+        QThreadPool::globalInstance()->start(response); // Dispatches run() asynchronously
+        return response;
     }
 
 private:

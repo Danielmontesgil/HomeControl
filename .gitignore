@@ -61,3 +61,21 @@ certs/
 *.key
 *.crt
 .env
+
+# ==========================================
+# Antigravity
+# ==========================================
+.antigravity/
+.antigravitycli/
+.agents/
+Antigravity files/
+
+# ==========================================
+# Local Docker & Credentials
+# ==========================================
+config-ha/
+config.json
+secrets.json
+Token.txt
+device_settings.json
+

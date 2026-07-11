@@ -28,6 +28,9 @@ public:
     DeviceModel* getDevices() const { return &m_deviceModel; }
 
     void setHaCredentials(const QString& url, const QString& token);
+    Q_INVOKABLE void saveHaCredentials(const QString& url, const QString& token);
+    Q_INVOKABLE QString getSavedHaUrl() const;
+    Q_INVOKABLE QString getSavedHaToken() const;
     Q_INVOKABLE QString getHaMapUrl(const QString& entityId) const;
 
 public slots:

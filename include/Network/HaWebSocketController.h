@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QWebSocket>
 #include <QJsonObject>
+#include <QTimer>
 #include "IHaController.h"
 
 /**
@@ -65,8 +66,10 @@ private:
     QWebSocket m_webSocket;
     std::string m_url;
     std::string m_token;
+    QTimer* m_reconnectTimer{nullptr};
     int m_messageId{1};
     bool m_isAuthenticated{false};
+    bool m_shouldReconnect{true};
 
     void authenticate();
     void subscribeToEvents();

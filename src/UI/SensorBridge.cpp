@@ -212,3 +212,23 @@ QString SensorBridge::getHaMapUrl(const QString& entityId) const
     return httpUrl;
 }
 
+void SensorBridge::saveHaCredentials(const QString& url, const QString& token)
+{
+    m_settingsManager.saveAlias("system.ha_url", url.toStdString());
+    m_settingsManager.saveAlias("system.ha_token", token.toStdString());
+    setHaCredentials(url, token);
+    m_haController.connectToHa(url.toStdString(), token.toStdString());
+}
+
+QString SensorBridge::getSavedHaUrl() const
+{
+    std::string url = m_settingsManager.getAlias("system.ha_url", m_haUrl.toStdString());
+    return QString::fromStdString(url);
+}
+
+QString SensorBridge::getSavedHaToken() const
+{
+    std::string token = m_settingsManager.getAlias("system.ha_token", m_haToken.toStdString());
+    return QString::fromStdString(token);
+}
+

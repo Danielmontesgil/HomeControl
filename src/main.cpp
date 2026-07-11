@@ -10,7 +10,7 @@
 #include <memory>
 #include <thread>
 #include <chrono>
-#include "ConsoleLogger.h"
+#include <atomic>
 #include "DeviceFactory.h"
 #include "LightDevice.h"
 #include "DimmableColorLightDevice.h"
@@ -26,9 +26,9 @@
 
 using namespace Qt::StringLiterals;
 
-void updateSensors(std::vector<std::unique_ptr<ISensor>>& sensors)
+void updateSensors(std::vector<std::unique_ptr<ISensor>>& sensors, std::atomic<bool>& running)
 {
-    while (true)
+    while (running)
     {
         for (auto& sensor : sensors)
         {
@@ -47,8 +47,8 @@ int main(int argc, char *argv[]) {
     sensors.push_back(std::make_unique<LuminositySensor>());
     sensors.push_back(std::make_unique<TemperatureSensor>());
     
-    std::thread worker(updateSensors, std::ref(sensors));
-    worker.detach();
+    std::atomic<bool> keepRunning(true);
+    std::thread worker(updateSensors, std::ref(sensors), std::ref(keepRunning));
     
     // --- Network Setup (Home Assistant WebSockets) ---
     auto haController = HaWebSocketController();
@@ -85,21 +85,33 @@ int main(int argc, char *argv[]) {
     QObject::connect(&haController, &HaWebSocketController::deviceDiscovered, &bridge, &SensorBridge::onDeviceDiscovered);
     QObject::connect(&haController, &HaWebSocketController::deviceStateChanged, &bridge, &SensorBridge::onDeviceStateChanged);
 
-    // Load HA credentials dynamically from local config.json file
-    QString haUrl = "ws://localhost:8123/api/websocket";
-    QString haToken = "";
+    // Load HA credentials dynamically: first check persistent settings, then fallback to local config.json file
+    std::string savedUrl = settings.getAlias("system.ha_url", "");
+    std::string savedToken = settings.getAlias("system.ha_token", "");
+    
+    QString haUrl = QString::fromStdString(savedUrl);
+    QString haToken = QString::fromStdString(savedToken);
 
-    QFile configFile("config.json");
-    if (configFile.open(QIODevice::ReadOnly))
+    if (haUrl.isEmpty() || haToken.isEmpty())
     {
-        QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
-        QJsonObject obj = doc.object();
-        if (obj.contains("ha_url")) haUrl = obj["ha_url"].toString();
-        if (obj.contains("ha_token")) haToken = obj["ha_token"].toString();
+        QFile configFile("config.json");
+        if (configFile.open(QIODevice::ReadOnly))
+        {
+            QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
+            QJsonObject obj = doc.object();
+            if (obj.contains("ha_url")) haUrl = obj["ha_url"].toString();
+            if (obj.contains("ha_token")) haToken = obj["ha_token"].toString();
+        }
+        else
+        {
+            std::cerr << "[Warning] config.json and saved settings not found, using default URL and empty token." << std::endl;
+            haUrl = "ws://localhost:8123/api/websocket";
+        }
     }
-    else
+
+    if (haUrl.startsWith("ws://") && !haUrl.contains("localhost") && !haUrl.contains("127.0.0.1"))
     {
-        std::cerr << "[Warning] config.json not found, using default URL and empty token." << std::endl;
+        std::cerr << "[Security Warning] Usando WebSocket no cifrado (ws://) fuera de localhost para transmitir credenciales de Home Assistant." << std::endl;
     }
 
     bridge.setHaCredentials(haUrl, haToken);
@@ -134,8 +146,19 @@ int main(int argc, char *argv[]) {
     
     if (engine.rootObjects().isEmpty())
     {
+        keepRunning = false;
+        if (worker.joinable())
+        {
+            worker.join();
+        }
         return -1;
     }
     
-    return app.exec();
+    int result = app.exec();
+    keepRunning = false;
+    if (worker.joinable())
+    {
+        worker.join();
+    }
+    return result;
 }

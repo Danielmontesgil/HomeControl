@@ -17,10 +17,25 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
     connect(&m_webSocket, &QWebSocket::errorOccurred, this, [](QAbstractSocket::SocketError error) {
         std::cerr << "[HaWebSocketController] Socket error: " << error << std::endl;
     });
+
+    // Initialize reconnect timer
+    m_reconnectTimer = new QTimer(this);
+    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
+        if (!m_isAuthenticated && m_shouldReconnect)
+        {
+            std::cout << "[HaWebSocketController] Reconnection timer triggered, opening WebSocket..." << std::endl;
+            m_webSocket.open(QUrl(QString::fromStdString(m_url)));
+        }
+    });
 }
 
 HaWebSocketController::~HaWebSocketController()
 {
+    m_shouldReconnect = false;
+    if (m_reconnectTimer)
+    {
+        m_reconnectTimer->stop();
+    }
     m_webSocket.close();
 }
 
@@ -29,6 +44,7 @@ void HaWebSocketController::connectToHa(const std::string& url, const std::strin
     m_url = url;
     m_token = token;
     m_isAuthenticated = false;
+    m_shouldReconnect = true;
 
     std::cout << "[HaWebSocketController] Connecting to " << m_url << "..." << std::endl;
     m_webSocket.open(QUrl(QString::fromStdString(m_url)));
@@ -64,6 +80,10 @@ void HaWebSocketController::callService(const std::string& domain,
 void HaWebSocketController::onConnected()
 {
     std::cout << "[HaWebSocketController] TCP connection established with the WebSocket." << std::endl;
+    if (m_reconnectTimer)
+    {
+        m_reconnectTimer->stop();
+    }
 }
 
 void HaWebSocketController::onDisconnected()
@@ -71,6 +91,10 @@ void HaWebSocketController::onDisconnected()
     std::cout << "[HaWebSocketController] WebSocket connection lost." << std::endl;
     m_isAuthenticated = false;
     emit disconnected();
+    if (m_shouldReconnect && m_reconnectTimer)
+    {
+        m_reconnectTimer->start(5000);
+    }
 }
 
 void HaWebSocketController::onTextMessageReceived(const QString& message)
@@ -127,6 +151,11 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     }
 
     QJsonObject rootObj = doc.object();
+    if (!rootObj.contains("type") || !rootObj["type"].isString())
+    {
+        std::cerr << "[HaWebSocketController] Error: Received JSON payload lacks a valid string 'type' key." << std::endl;
+        return;
+    }
     QString msgType = rootObj["type"].toString();
 
     // HA Handshake and Authentication Flow
