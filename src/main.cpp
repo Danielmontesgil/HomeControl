@@ -2,6 +2,8 @@
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 #include <QQmlContext>
+#include <QTranslator>
+#include <QLocale>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -79,6 +81,32 @@ int main(int argc, char *argv[]) {
     
     // Initialize SensorBridge (injecting dependencies)
     SensorBridge bridge(deviceFactory, deviceModel, haController, settings);
+    
+    // --- Translation Setup (i18n) ---
+    QTranslator translator;
+    std::string savedLang = settings.getAlias("system.language", "system");
+    QLocale localeToLoad;
+    if (savedLang == "system")
+    {
+        localeToLoad = QLocale::system();
+    }
+    else
+    {
+        localeToLoad = QLocale(QString::fromStdString(savedLang));
+    }
+
+    if (localeToLoad.language() != QLocale::English)
+    {
+        if (translator.load(localeToLoad, "HomeControl", "_", ":/i18n"))
+        {
+            app.installTranslator(&translator);
+        }
+        else
+        {
+            std::cerr << "[i18n] Fallo al cargar el archivo de traduccion para: " 
+                      << localeToLoad.name().toStdString() << std::endl;
+        }
+    }
     
     // Connect HA controller signals to Bridge slots
     // This must be done BEFORE connecting to prevent missing the initial state dump (get_states)

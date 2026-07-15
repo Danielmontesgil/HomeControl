@@ -31,6 +31,8 @@ public:
     Q_INVOKABLE void saveHaCredentials(const QString& url, const QString& token);
     Q_INVOKABLE QString getSavedHaUrl() const;
     Q_INVOKABLE QString getSavedHaToken() const;
+    Q_INVOKABLE QString getSavedLanguage() const;
+    Q_INVOKABLE void saveLanguage(const QString& lang);
     Q_INVOKABLE QString getHaMapUrl(const QString& entityId) const;
 
 public slots:
