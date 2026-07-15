@@ -10,7 +10,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 WebSockets Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 WebSockets Network LinguistTools)
 qt_policy(SET QTP0001 NEW)
 qt_policy(SET QTP0002 NEW)
 qt_standard_project_setup()
@@ -70,6 +70,12 @@ qt_add_qml_module(HomeControl
     VERSION 1.0
     RESOURCE_PREFIX "/"
     QML_FILES main.qml
+)
+
+qt_add_translations(HomeControl
+    TS_FILES
+        i18n/HomeControl_es.ts
+        i18n/HomeControl_de.ts
 )
 
 target_link_libraries(HomeControl

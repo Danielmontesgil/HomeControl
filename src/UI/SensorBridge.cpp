@@ -232,3 +232,14 @@ QString SensorBridge::getSavedHaToken() const
     return QString::fromStdString(token);
 }
 
+QString SensorBridge::getSavedLanguage() const
+{
+    std::string lang = m_settingsManager.getAlias("system.language", "system");
+    return QString::fromStdString(lang);
+}
+
+void SensorBridge::saveLanguage(const QString& lang)
+{
+    m_settingsManager.saveAlias("system.language", lang.toStdString());
+}
+

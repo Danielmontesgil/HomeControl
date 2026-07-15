@@ -8,7 +8,7 @@ ApplicationWindow {
     visible: true
     width: (Qt.platform.os === "android" || Qt.platform.os === "ios") ? Screen.width : 450
     height: (Qt.platform.os === "android" || Qt.platform.os === "ios") ? Screen.height : 750
-    title: "HomeControl Smart"
+    title: qsTr("HomeControl Smart")
 
     background: Rectangle { color: "#F5F7FA" }
 
@@ -40,13 +40,13 @@ ApplicationWindow {
             Layout.fillWidth: true
             spacing: 5
             Text {
-                text: "Mi Hogar"
+                text: qsTr("My Home")
                 font.pixelSize: 32
                 font.weight: Font.Black
                 color: "#1A237E"
             }
             Text {
-                text: "Sistema Online • " + (_lightCount + _rollerCount + _vacuumCount) + " dispositivos"
+                text: qsTr("System Online • %1 devices").arg(_lightCount + _rollerCount + _vacuumCount)
                 font.pixelSize: 13
                 color: "#4CAF50"
             }
@@ -71,7 +71,7 @@ ApplicationWindow {
                     RowLayout {
                         width: parent.width
                         Label {
-                            text: "ILUMINACIÓN"
+                            text: qsTr("LIGHTING")
                             font.pixelSize: 12; font.weight: Font.Bold; color: "#9E9E9E"
                             Layout.fillWidth: true
                         }
@@ -243,7 +243,7 @@ ApplicationWindow {
                     RowLayout {
                         width: parent.width
                         Label {
-                            text: "PERSIANAS Y CONFORT"
+                            text: qsTr("BLINDS & COMFORT")
                             font.pixelSize: 12; font.weight: Font.Bold; color: "#9E9E9E"
                             Layout.fillWidth: true
                         }
@@ -361,7 +361,7 @@ ApplicationWindow {
                                 
                                 Button {
                                     visible: model.supportsStop && model.isMoving
-                                    text: "🛑 DETENER"
+                                    text: qsTr("🛑 STOP")
                                     flat: true
                                     contentItem: Text {
                                         text: parent.text
@@ -385,7 +385,7 @@ ApplicationWindow {
                     RowLayout {
                         width: parent.width
                         Label {
-                            text: "ASPIRADORES Y LIMPIEZA"
+                            text: qsTr("VACUUMS & CLEANING")
                             font.pixelSize: 12; font.weight: Font.Bold; color: "#9E9E9E"
                             Layout.fillWidth: true
                         }
@@ -464,15 +464,15 @@ ApplicationWindow {
                                         RowLayout {
                                             spacing: 5
                                             Text { 
-                                                text: "Estado: " + (model.vacuumState ?? "desconocido")
-                                                font.pixelSize: 12
-                                                color: (model.vacuumState === "cleaning") ? "#4CAF50" : "#7F8C8D"
-                                                font.weight: Font.DemiBold
+                                                 text: qsTr("Status: %1").arg(model.vacuumState ?? qsTr("unknown"))
+                                                 font.pixelSize: 12
+                                                 color: (model.vacuumState === "cleaning") ? "#4CAF50" : "#7F8C8D"
+                                                 font.weight: Font.DemiBold
                                             }
                                             Text {
-                                                text: "• " + (model.fanSpeed ?? "Standard")
-                                                font.pixelSize: 11
-                                                color: "#95A5A6"
+                                                 text: "• " + (model.fanSpeed ?? qsTr("Standard"))
+                                                 font.pixelSize: 11
+                                                 color: "#95A5A6"
                                             }
                                         }
                                     }
@@ -486,7 +486,7 @@ ApplicationWindow {
                                             font.weight: Font.Black
                                             color: (model.batteryLevel !== undefined && model.batteryLevel > 20) ? "#4CAF50" : "#F44336"
                                         }
-                                        Text { text: "Batería"; font.pixelSize: 9; color: "#BDC3C7" }
+                                         Text { text: qsTr("Battery"); font.pixelSize: 9; color: "#BDC3C7" }
                                     }
                                 }
                                 
@@ -496,7 +496,7 @@ ApplicationWindow {
                                     
                                     Button {
                                         Layout.fillWidth: true
-                                        text: "▶ EMPEZAR"
+                                         text: qsTr("▶ START")
                                         enabled: model.vacuumState !== "cleaning"
                                         onClicked: sensorBridge.publishCommand(model.topic, "START")
                                         contentItem: Text {
@@ -509,7 +509,7 @@ ApplicationWindow {
                                     
                                     Button {
                                         Layout.fillWidth: true
-                                        text: "⏸ PAUSAR"
+                                         text: qsTr("⏸ PAUSE")
                                         enabled: model.vacuumState === "cleaning"
                                         onClicked: sensorBridge.publishCommand(model.topic, "PAUSE")
                                         contentItem: Text {
@@ -522,7 +522,7 @@ ApplicationWindow {
                                     
                                     Button {
                                         Layout.fillWidth: true
-                                        text: "🏠 CARGAR"
+                                         text: qsTr("🏠 DOCK")
                                         enabled: model.vacuumState !== "docked" && model.vacuumState !== "returning"
                                         onClicked: sensorBridge.publishCommand(model.topic, "RETURN")
                                         contentItem: Text {
@@ -550,7 +550,7 @@ ApplicationWindow {
                     topPadding: 20
 
                     Label {
-                        text: "ADMINISTRACIÓN"
+                        text: qsTr("ADMINISTRATION")
                         font.pixelSize: 12; font.weight: Font.Bold; color: "#9E9E9E"
                     }
 
@@ -559,19 +559,19 @@ ApplicationWindow {
                         spacing: 10
                         
                         Button {
-                            text: "+ Luz Baño"
+                            text: "+ " + qsTr("Bath Light")
                             onClicked: sensorBridge.addDevice("Light", "BathroomLight", "home/light/bathroom/1")
                         }
                         Button {
-                            text: "+ Persiana Hab."
+                            text: "+ " + qsTr("Bed. Blind")
                             onClicked: sensorBridge.addDevice("Roller", "BedroomRoller", "home/roller/bedroom/1")
                         }
                         Button {
-                            text: "+ Persiana Salón"
+                            text: "+ " + qsTr("Living Blind")
                             onClicked: sensorBridge.addDevice("Roller", "StudioRoller", "home/roller/studio/1")
                         }
                         Button {
-                            text: "+ Aspiradora"
+                            text: "+ " + qsTr("Vacuum")
                             onClicked: sensorBridge.addDevice("Vacuum", "Xiaomi Vacuum 20X+", "vacuum.xiaomi_vacuum")
                         }
                     }
@@ -619,7 +619,7 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     spacing: 2
                     Text {
-                        text: activeVacuumDevice ? activeVacuumDevice.deviceId : "Aspirador"
+                        text: activeVacuumDevice ? activeVacuumDevice.deviceId : qsTr("Vacuum Cleaner")
                         font.weight: Font.Black
                         font.pixelSize: 22
                         color: "#1A237E"
@@ -670,7 +670,7 @@ ApplicationWindow {
                     Text {
                         anchors.centerIn: parent
                         visible: mapImage.status === Image.Error || !activeVacuumDevice
-                        text: "Mapa no disponible\n(Asegúrate de tener Xiaomi Cloud Map Extractor en HA)"
+                        text: qsTr("Map not available\n(Make sure you have Xiaomi Cloud Map Extractor in HA)")
                         font.pixelSize: 12
                         color: "#95A5A6"
                         horizontalAlignment: Text.AlignHCenter
@@ -689,7 +689,7 @@ ApplicationWindow {
                     color: "#F5F7FA"
                     ColumnLayout {
                         anchors.centerIn: parent
-                        Text { text: "ESTADO"; font.pixelSize: 9; color: "#9E9E9E"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
+                        Text { text: qsTr("STATUS"); font.pixelSize: 9; color: "#9E9E9E"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
                         Text { 
                             text: activeVacuumDevice ? activeVacuumDevice.vacuumState : "-"
                             font.pixelSize: 16
@@ -707,7 +707,7 @@ ApplicationWindow {
                     color: "#F5F7FA"
                     ColumnLayout {
                         anchors.centerIn: parent
-                        Text { text: "BATERÍA"; font.pixelSize: 9; color: "#9E9E9E"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
+                        Text { text: qsTr("BATTERY"); font.pixelSize: 9; color: "#9E9E9E"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
                         Text { 
                             text: (activeVacuumDevice && activeVacuumDevice.batteryLevel !== undefined ? activeVacuumDevice.batteryLevel : 100) + "%"
                             font.pixelSize: 16
@@ -722,7 +722,7 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 5
-                Text { text: "POTENCIA DE SUCCIÓN"; font.pixelSize: 10; font.weight: Font.Bold; color: "#9E9E9E" }
+                Text { text: qsTr("SUCTION POWER"); font.pixelSize: 10; font.weight: Font.Bold; color: "#9E9E9E" }
                 
                 RowLayout {
                     Layout.fillWidth: true
@@ -761,7 +761,7 @@ ApplicationWindow {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 5
-                Text { text: "MANTENIMIENTO Y ACCIONES"; font.pixelSize: 10; font.weight: Font.Bold; color: "#9E9E9E" }
+                Text { text: qsTr("MAINTENANCE & ACTIONS"); font.pixelSize: 10; font.weight: Font.Bold; color: "#9E9E9E" }
                 
                 RowLayout {
                     Layout.fillWidth: true
@@ -769,7 +769,7 @@ ApplicationWindow {
                     
                     Button {
                         Layout.fillWidth: true
-                        text: "🗺️ ESCANEAR CASA"
+                        text: qsTr("🗺️ SCAN HOUSE")
                         onClicked: {
                             if (activeVacuumDevice) {
                                 sensorBridge.publishCommand(activeVacuumDevice.topic, "SEND_COMMAND:app_start_mapping")
@@ -779,7 +779,7 @@ ApplicationWindow {
                     
                     Button {
                         Layout.fillWidth: true
-                        text: "🗑️ VACIAR DEPÓSITO"
+                        text: qsTr("🗑️ EMPTY DUSTBIN")
                         onClicked: {
                             if (activeVacuumDevice) {
                                 sensorBridge.publishCommand(activeVacuumDevice.topic, "SEND_COMMAND:app_empty_dustbin")
@@ -788,7 +788,7 @@ ApplicationWindow {
                     }
 
                     Button {
-                        text: "📍 LOCALIZAR"
+                        text: qsTr("📍 LOCATE")
                         onClicked: {
                             if (activeVacuumDevice) {
                                 sensorBridge.publishCommand(activeVacuumDevice.topic, "LOCATE")
@@ -809,8 +809,8 @@ ApplicationWindow {
         
         Item { Layout.fillHeight: true }
         Text { text: "🎬"; font.pixelSize: 64; Layout.alignment: Qt.AlignHCenter }
-        Text { text: "Escenas Inteligentes"; font.pixelSize: 24; font.weight: Font.Bold; color: "#1A237E"; Layout.alignment: Qt.AlignHCenter }
-        Text { text: "Automatiza tu hogar con un solo toque."; font.pixelSize: 14; color: "#7F8C8D"; Layout.alignment: Qt.AlignHCenter }
+        Text { text: qsTr("Smart Scenes"); font.pixelSize: 24; font.weight: Font.Bold; color: "#1A237E"; Layout.alignment: Qt.AlignHCenter }
+        Text { text: qsTr("Automate your home with a single touch."); font.pixelSize: 14; color: "#7F8C8D"; Layout.alignment: Qt.AlignHCenter }
         Item { Layout.fillHeight: true }
     }
 
@@ -818,15 +818,15 @@ ApplicationWindow {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 20
-        spacing: 20
+        spacing: 15
         visible: tabBar.currentIndex === 2
 
-        Text { text: "Configuración de Red"; font.pixelSize: 28; font.weight: Font.Black; color: "#1A237E" }
-        Text { text: "Enlaza la aplicación móvil con tu servidor de Home Assistant."; font.pixelSize: 13; color: "#7F8C8D"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+        Text { text: qsTr("Network Settings"); font.pixelSize: 28; font.weight: Font.Black; color: "#1A237E" }
+        Text { text: qsTr("Link the mobile application with your Home Assistant server."); font.pixelSize: 13; color: "#7F8C8D"; Layout.fillWidth: true; wrapMode: Text.WordWrap }
 
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Label { text: "URL del WebSocket de Home Assistant:"; font.weight: Font.Bold; color: "#34495E" }
+            Label { text: qsTr("Home Assistant WebSocket URL:"); font.weight: Font.Bold; color: "#34495E" }
             TextField {
                 id: haUrlInput
                 text: sensorBridge.getSavedHaUrl()
@@ -838,11 +838,11 @@ ApplicationWindow {
 
         ColumnLayout {
             Layout.fillWidth: true; spacing: 5
-            Label { text: "Token de Acceso de Larga Duración (LLAT):"; font.weight: Font.Bold; color: "#34495E" }
+            Label { text: qsTr("Long-Lived Access Token (LLAT):"); font.weight: Font.Bold; color: "#34495E" }
             TextField {
                 id: haTokenInput
                 text: sensorBridge.getSavedHaToken()
-                placeholderText: "Token de HA"
+                placeholderText: qsTr("HA Token")
                 Layout.fillWidth: true; color: "#2C3E50"; font.pixelSize: 14
                 echoMode: TextInput.PasswordEchoOnEdit
                 background: Rectangle { implicitHeight: 44; radius: 6; border.color: haTokenInput.activeFocus ? "#1A237E" : "#BDC3C7"; border.width: haTokenInput.activeFocus ? 2 : 1 }
@@ -850,25 +850,61 @@ ApplicationWindow {
         }
 
         Button {
-            text: "Guardar y Conectar"
+            text: qsTr("Save and Connect")
             Layout.fillWidth: true; implicitHeight: 48
             contentItem: Text { text: parent.text; font.weight: Font.Bold; font.pixelSize: 16; color: "white"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             background: Rectangle { color: parent.pressed ? "#0D47A1" : "#1A237E"; radius: 8 }
             onClicked: {
                 sensorBridge.saveHaCredentials(haUrlInput.text, haTokenInput.text)
-                statusText.text = "Guardado. Intentando conectar..."
+                statusText.text = qsTr("Saved. Attempting to connect...")
                 statusTimer.start()
             }
         }
 
         Text { id: statusText; text: ""; font.pixelSize: 12; color: "#4CAF50"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
         Timer { id: statusTimer; interval: 3000; onTriggered: statusText.text = "" }
+
+        // Sección de Idioma
+        ColumnLayout {
+            Layout.fillWidth: true; spacing: 5
+            Label { text: qsTr("Language:"); font.weight: Font.Bold; color: "#34495E" }
+            ComboBox {
+                id: languageCombo
+                Layout.fillWidth: true
+                model: [
+                    { text: qsTr("System Default"), value: "system" },
+                    { text: "English", value: "en" },
+                    { text: "Español", value: "es" },
+                    { text: "Deutsch", value: "de" }
+                ]
+                textRole: "text"
+                valueRole: "value"
+                
+                Component.onCompleted: {
+                    var saved = sensorBridge.getSavedLanguage()
+                    for (var i = 0; i < model.length; i++) {
+                        if (model[i].value === saved) {
+                            currentIndex = i
+                            break
+                        }
+                    }
+                }
+                
+                onActivated: {
+                    var selectedValue = model[currentIndex].value
+                    sensorBridge.saveLanguage(selectedValue)
+                    languageStatusText.text = qsTr("Language changed. Please restart the app to apply.")
+                }
+            }
+        }
+
+        Text { id: languageStatusText; text: ""; font.pixelSize: 12; color: "#E74C3C"; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
         Item { Layout.fillHeight: true }
     }
 
     Dialog {
         id: renameDialog
-        title: "Renombrar dispositivo"
+        title: qsTr("Rename device")
         standardButtons: Dialog.Save | Dialog.Cancel
         anchors.centerIn: parent
         modal: true
@@ -886,14 +922,14 @@ ApplicationWindow {
             anchors.fill: parent
             anchors.margins: 10
             Label {
-                text: "Introduce el nuevo nombre visual:"
+                text: qsTr("Enter the new visual name:")
                 font.weight: Font.Bold
                 color: "#2C3E50"
             }
             TextField {
                 id: aliasInput
                 focus: true
-                placeholderText: "Alias"
+                placeholderText: qsTr("Alias")
                 color: "#2C3E50"
                 placeholderTextColor: "#95A5A6"
                 Layout.fillWidth: true
@@ -914,8 +950,8 @@ ApplicationWindow {
     footer: TabBar {
         id: tabBar
         currentIndex: 0
-        TabButton { text: "Panel" }
-        TabButton { text: "Escenas" }
-        TabButton { text: "Config" }
+        TabButton { text: qsTr("Dashboard") }
+        TabButton { text: qsTr("Scenes") }
+        TabButton { text: qsTr("Config") }
     }
 }
