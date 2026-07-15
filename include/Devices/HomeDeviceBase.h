@@ -4,6 +4,10 @@
 #include <QString>
 #include <QJsonObject>
 #include <string>
+#include <memory>
+
+class ICommand;
+class IHaController;
 
 enum class DeviceType
 {
@@ -30,6 +34,7 @@ public:
     
     virtual DeviceType getType() const = 0; 
     virtual void prepareForCommand(const std::string& payload) = 0;
+    virtual std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) = 0;
     
     /**
      * @brief Updates the device state based on data received from Home Assistant.

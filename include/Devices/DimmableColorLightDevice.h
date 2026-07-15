@@ -15,6 +15,7 @@ public:
     // HomeDeviceBase overrides
     DeviceType getType() const override { return DeviceType::Light; }
     void prepareForCommand(const std::string& payload) override;
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override;
     void updateState(const std::string& state, const QJsonObject& attributes) override;
 
     // ISwitchable overrides

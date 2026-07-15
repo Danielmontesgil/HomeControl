@@ -14,6 +14,7 @@ public:
 
     DeviceType getType() const override;
     void prepareForCommand(const std::string& payload) override;
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override;
     void updateState(const std::string& state, const QJsonObject& attributes) override;
 
     QString getVacuumState() const;

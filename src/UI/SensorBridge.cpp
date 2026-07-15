@@ -2,6 +2,7 @@
 #include "DeviceModel.h"
 #include "IHaController.h"
 #include "HomeDeviceBase.h"
+#include "Commands/ICommand.h"
 #include "IDeviceFactory.h"
 #include "IStoppable.h"
 #include "ISettingsManager.h"
@@ -16,83 +17,15 @@ SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceMod
 
 void SensorBridge::publishCommand(const QString& topic, const QString& payload)
 {
-    std::string entityId = topic.toStdString();
-    std::string p = payload.toStdString();
-    
-    // Get the corresponding device in the local model
     if (auto* device = m_deviceModel.findByTopic(topic)) {
-        // Execute immediate local changes if UI needs it before network (e.g. roller animation)
-        device->prepareForCommand(p);
-        
-        // Map QML command to the corresponding HA service call
-        if (device->getType() == DeviceType::Light) {
-            if (p == "ON") {
-                m_haController.callService("light", "turn_on", entityId);
-            } else if (p == "OFF") {
-                m_haController.callService("light", "turn_off", entityId);
-            } else if (p.starts_with("BRIGHTNESS:")) {
-                try {
-                    int percent = std::stoi(p.substr(11));
-                    int haBrightness = static_cast<int>(percent * 255.0f / 100.0f);
-                    QJsonObject serviceData;
-                    serviceData["brightness"] = haBrightness;
-                    m_haController.callService("light", "turn_on", entityId, serviceData);
-                } catch (...) {
-                    std::cerr << "[SensorBridge] Error parsing brightness command: " << p << std::endl;
-                }
-            } else if (p.starts_with("COLOR:")) {
-                std::string hexStr = p.substr(6);
-                QColor color(QString::fromStdString(hexStr));
-                if (color.isValid()) {
-                    QJsonArray rgbArray;
-                    rgbArray.append(color.red());
-                    rgbArray.append(color.green());
-                    rgbArray.append(color.blue());
-                    QJsonObject serviceData;
-                    serviceData["rgb_color"] = rgbArray;
-                    m_haController.callService("light", "turn_on", entityId, serviceData);
-                } else {
-                    std::cerr << "[SensorBridge] Invalid color format: " << hexStr << std::endl;
-                }
-            }
-        }
-        else if (device->getType() == DeviceType::Roller) {
-            if (p == "STOP") {
-                m_haController.callService("cover", "stop_cover", entityId);
-            } else {
-                try {
-                    int pos = std::stoi(p);
-                    QJsonObject serviceData;
-                    serviceData["position"] = pos;
-                    m_haController.callService("cover", "set_cover_position", entityId, serviceData);
-                } catch (...) {
-                    std::cerr << "[SensorBridge] Error parsing cover position: " << p << std::endl;
-                }
-            }
-        }
-        else if (device->getType() == DeviceType::Vacuum) {
-            if (p == "START") {
-                m_haController.callService("vacuum", "start", entityId);
-            } else if (p == "PAUSE") {
-                m_haController.callService("vacuum", "pause", entityId);
-            } else if (p == "RETURN" || p == "DOCK") {
-                m_haController.callService("vacuum", "return_to_base", entityId);
-            } else if (p == "LOCATE") {
-                m_haController.callService("vacuum", "locate", entityId);
-            } else if (p.starts_with("FAN_SPEED:")) {
-                std::string speed = p.substr(10);
-                QJsonObject serviceData;
-                serviceData["fan_speed"] = QString::fromStdString(speed);
-                m_haController.callService("vacuum", "set_fan_speed", entityId, serviceData);
-            } else if (p.starts_with("SEND_COMMAND:")) {
-                std::string cmd = p.substr(13);
-                QJsonObject serviceData;
-                serviceData["command"] = QString::fromStdString(cmd);
-                m_haController.callService("vacuum", "send_command", entityId, serviceData);
-            }
+        std::string cmd = payload.toStdString();
+        device->prepareForCommand(cmd);
+        if (auto command = device->parseCommand(cmd, m_haController)) {
+            command->execute();
         }
     }
 }
+
 
 int SensorBridge::getDeviceCount(const QString& prefix) const
 {
