@@ -1,6 +1,8 @@
 #include "RollerDevice.h"
+#include "Commands/GenericHaCommand.h"
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 void RollerDevice::updateState(const std::string& state, const QJsonObject& attributes)
 {
@@ -44,3 +46,21 @@ void RollerDevice::prepareForCommand(const std::string& payload)
         startMoving();
     }
 }
+
+std::unique_ptr<ICommand> RollerDevice::parseCommand(const std::string& payload, IHaController& haController)
+{
+    if (payload == "STOP") {
+        return std::make_unique<GenericHaCommand>(haController, "cover", "stop_cover", topic);
+    } else {
+        try {
+            int pos = std::stoi(payload);
+            QJsonObject serviceData;
+            serviceData["position"] = pos;
+            return std::make_unique<GenericHaCommand>(haController, "cover", "set_cover_position", topic, serviceData);
+        } catch (...) {
+            std::cerr << "[RollerDevice] Error parsing cover position: " << payload << std::endl;
+        }
+    }
+    return nullptr;
+}
+

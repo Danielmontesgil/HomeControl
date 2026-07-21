@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "Devices/DeviceFactory.h"
 #include "Devices/HomeDeviceBase.h"
+#include "Commands/ICommand.h"
 
 class DummyDevice : public HomeDeviceBase {
 public:
@@ -9,6 +10,7 @@ public:
 
     DeviceType getType() const override { return DeviceType::Light; }
     void prepareForCommand(const std::string& payload) override {}
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override { return nullptr; }
     void updateState(const std::string& state, const QJsonObject& attributes) override {}
 };
 
@@ -19,6 +21,7 @@ public:
 
     DeviceType getType() const override { return DeviceType::Vacuum; }
     void prepareForCommand(const std::string& payload) override {}
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override { return nullptr; }
     void updateState(const std::string& state, const QJsonObject& attributes) override {}
 };
 

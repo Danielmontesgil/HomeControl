@@ -14,6 +14,7 @@ public:
     DeviceType getType() const override { return DeviceType::Roller; };
     
     void prepareForCommand(const std::string& payload) override;
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override;
     
     // IStoppable
     bool isMoving() const override { return m_isMoving; }
