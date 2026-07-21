@@ -27,6 +27,12 @@ public:
 
     // Testing/state inspection helper
     bool isAuthenticated() const { return m_isAuthenticated; }
+    int retryAttemptCount() const { return m_retryAttemptCount; }
+
+    // Constants for Exponential Backoff strategy
+    static constexpr int BASE_RETRY_DELAY_MS = 2000;
+    static constexpr int MAX_RETRY_DELAY_MS = 30000;
+    static constexpr double JITTER_FACTOR = 0.20;
 
 signals:
     /**
@@ -70,12 +76,18 @@ private:
     int m_messageId{1};
     bool m_isAuthenticated{false};
     bool m_shouldReconnect{true};
+    int m_retryAttemptCount{0};
 
     void authenticate();
     void subscribeToEvents();
     void fetchInitialStates();
     void parseHaMessage(const QString& message);
     
+    // Calculates backoff delay in milliseconds with exponential growth and 20% random jitter
+    int calculateNextBackoffDelayMs();
+    void resetBackoff();
+    
     // Generates a unique sequential message ID for each request
     int nextMessageId() { return m_messageId++; }
 };
+

@@ -140,6 +140,8 @@ add_executable(HomeControlTests
     tests/DimmableColorLightDeviceTest.cpp
     tests/DeviceFactoryTest.cpp
     tests/DeviceModelTest.cpp
+    tests/GenericHaCommandTest.cpp
+    tests/HaWebSocketControllerTest.cpp
     ${LIB_SOURCES}
 )
 

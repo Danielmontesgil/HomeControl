@@ -3,6 +3,9 @@
 #include <QJsonArray>
 #include <QUrl>
 #include <iostream>
+#include <cmath>
+#include <random>
+#include <algorithm>
 
 HaWebSocketController::HaWebSocketController(QObject* parent)
     : QObject(parent)
@@ -20,6 +23,7 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
 
     // Initialize reconnect timer
     m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
         if (!m_isAuthenticated && m_shouldReconnect)
         {
@@ -45,6 +49,7 @@ void HaWebSocketController::connectToHa(const std::string& url, const std::strin
     m_token = token;
     m_isAuthenticated = false;
     m_shouldReconnect = true;
+    resetBackoff();
 
     std::cout << "[HaWebSocketController] Connecting to " << m_url << "..." << std::endl;
     m_webSocket.open(QUrl(QString::fromStdString(m_url)));
@@ -93,8 +98,37 @@ void HaWebSocketController::onDisconnected()
     emit disconnected();
     if (m_shouldReconnect && m_reconnectTimer)
     {
-        m_reconnectTimer->start(5000);
+        int delayMs = calculateNextBackoffDelayMs();
+        std::cout << "[HaWebSocketController] Scheduling reconnect attempt #" << m_retryAttemptCount 
+                  << " in " << delayMs << " ms." << std::endl;
+        m_reconnectTimer->start(delayMs);
     }
+}
+
+int HaWebSocketController::calculateNextBackoffDelayMs()
+{
+    // Exponential formula: base * 2^attempt
+    double exponentialDelay = BASE_RETRY_DELAY_MS * std::pow(2.0, m_retryAttemptCount);
+    double cappedDelay = std::min(exponentialDelay, static_cast<double>(MAX_RETRY_DELAY_MS));
+
+    // Jitter calculation (+/- 20%)
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(1.0 - JITTER_FACTOR, 1.0 + JITTER_FACTOR);
+
+    double jitteredDelay = cappedDelay * dis(gen);
+
+    if (m_retryAttemptCount < 10)
+    {
+        m_retryAttemptCount++;
+    }
+
+    return static_cast<int>(jitteredDelay);
+}
+
+void HaWebSocketController::resetBackoff()
+{
+    m_retryAttemptCount = 0;
 }
 
 void HaWebSocketController::onTextMessageReceived(const QString& message)
@@ -167,6 +201,7 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     {
         std::cout << "[HaWebSocketController] Authentication successfully completed." << std::endl;
         m_isAuthenticated = true;
+        resetBackoff();
         emit connected();
 
         // After successful authentication, sync states and subscribe to real-time events
@@ -177,6 +212,12 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     {
         std::cerr << "[HaWebSocketController] ERROR: Invalid access token for Home Assistant: " 
                   << rootObj["message"].toString().toStdString() << std::endl;
+        m_shouldReconnect = false;
+        if (m_reconnectTimer)
+        {
+            m_reconnectTimer->stop();
+        }
+        resetBackoff();
         m_webSocket.close();
     }
     // Responses to sent commands (like get_states)
