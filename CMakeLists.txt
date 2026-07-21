@@ -21,27 +21,26 @@ include_directories(
     include/Devices
     include/Network
     include/UI
-    include/Legacy
+    include/Commands
+    include/Bootstrap
 )
 
 set(PROJECT_SOURCES 
     src/main.cpp 
-    src/Legacy/LuminositySensor.cpp 
-    src/Legacy/TemperatureSensor.cpp
-    src/Legacy/AlertSystem.cpp
     src/UI/SensorBridge.cpp
     src/Network/HaWebSocketController.cpp
     src/Devices/DeviceModel.cpp
     src/Devices/DeviceFactory.cpp
+    src/Commands/GenericHaCommand.cpp
+    src/Bootstrap/AppSetup.cpp
+    include/Commands/ICommand.h
+    include/Commands/GenericHaCommand.h
+    include/Bootstrap/AppSetup.h
     src/Devices/LightDevice.cpp
     src/Devices/RollerDevice.cpp
     src/Devices/DimmableColorLightDevice.cpp
     src/Devices/VacuumDevice.cpp
     src/Devices/JsonSettingsManager.cpp
-    include/Legacy/ISensor.h 
-    include/Legacy/LuminositySensor.h 
-    include/Legacy/TemperatureSensor.h 
-    include/Legacy/AlertSystem.h
     include/Core/ThreadSafeValue.h
     include/UI/SensorBridge.h
     include/Network/HaWebSocketController.h
@@ -140,6 +139,7 @@ add_executable(HomeControlTests
     tests/DimmableColorLightDeviceTest.cpp
     tests/DeviceFactoryTest.cpp
     tests/DeviceModelTest.cpp
+    tests/GenericHaCommandTest.cpp
     ${LIB_SOURCES}
 )
 
@@ -149,8 +149,6 @@ target_include_directories(HomeControlTests PRIVATE
     include/Devices
     include/Mqtt
     include/UI
-    include/Legacy
-        
 )
 
 target_link_libraries(HomeControlTests

@@ -7,6 +7,7 @@
 #include "VacuumDevice.h"
 
 DeviceModel::DeviceModel(QObject* parent) : QAbstractListModel (parent){}
+DeviceModel::~DeviceModel() = default;
 
 QHash<int, QByteArray> DeviceModel::roleNames() const
 {

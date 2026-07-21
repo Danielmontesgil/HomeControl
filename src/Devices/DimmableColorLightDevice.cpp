@@ -1,6 +1,8 @@
 #include "DimmableColorLightDevice.h"
+#include "Commands/GenericHaCommand.h"
 #include <QJsonArray>
 #include <QColor>
+#include <iostream>
 
 void DimmableColorLightDevice::updateState(const std::string& state, const QJsonObject& attributes)
 {
@@ -79,3 +81,45 @@ void DimmableColorLightDevice::prepareForCommand(const std::string& payload)
         notifyUpdate();
     }
 }
+
+std::unique_ptr<ICommand> DimmableColorLightDevice::parseCommand(const std::string& payload, IHaController& haController)
+{
+    if (payload == "ON")
+    {
+        return std::make_unique<GenericHaCommand>(haController, "light", "turn_on", topic);
+    }
+    else if (payload == "OFF")
+    {
+        return std::make_unique<GenericHaCommand>(haController, "light", "turn_off", topic);
+    }
+    else if (payload.starts_with("BRIGHTNESS:"))
+    {
+        try {
+            int percent = std::stoi(payload.substr(11));
+            int haBrightness = static_cast<int>(percent * 255.0f / 100.0f);
+            QJsonObject serviceData;
+            serviceData["brightness"] = haBrightness;
+            return std::make_unique<GenericHaCommand>(haController, "light", "turn_on", topic, serviceData);
+        } catch (...) {
+            std::cerr << "[DimmableColorLightDevice] Error parsing brightness command: " << payload << std::endl;
+        }
+    }
+    else if (payload.starts_with("COLOR:"))
+    {
+        std::string hexStr = payload.substr(6);
+        QColor color(QString::fromStdString(hexStr));
+        if (color.isValid()) {
+            QJsonArray rgbArray;
+            rgbArray.append(color.red());
+            rgbArray.append(color.green());
+            rgbArray.append(color.blue());
+            QJsonObject serviceData;
+            serviceData["rgb_color"] = rgbArray;
+            return std::make_unique<GenericHaCommand>(haController, "light", "turn_on", topic, serviceData);
+        } else {
+            std::cerr << "[DimmableColorLightDevice] Invalid color format: " << hexStr << std::endl;
+        }
+    }
+    return nullptr;
+}
+

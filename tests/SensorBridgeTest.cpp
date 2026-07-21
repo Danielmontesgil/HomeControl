@@ -1,19 +1,36 @@
 #include <gtest/gtest.h>
+#include <map>
 #include "Network/IHaController.h"
 #include "SensorBridge.h"
 #include "HomeDeviceBase.h"
 #include "DeviceModel.h"
 #include "IDeviceFactory.h"
 #include "ISettingsManager.h"
+#include "Commands/GenericHaCommand.h"
 
 class MockSettingsManager : public ISettingsManager {
 public:
-    void saveAlias(const std::string& entityId, const std::string& alias) override {}
+    std::map<std::string, std::string> aliases;
+    std::map<std::string, bool> visibility;
+
+    void saveAlias(const std::string& entityId, const std::string& alias) override {
+        aliases[entityId] = alias;
+    }
     std::string getAlias(const std::string& entityId, const std::string& defaultAlias) override {
+        auto it = aliases.find(entityId);
+        if (it != aliases.end()) {
+            return it->second;
+        }
         return defaultAlias;
     }
-    void saveVisibility(const std::string& entityId, bool visible) override {}
+    void saveVisibility(const std::string& entityId, bool visible) override {
+        visibility[entityId] = visible;
+    }
     bool getVisibility(const std::string& entityId, bool defaultVisible) override {
+        auto it = visibility.find(entityId);
+        if (it != visibility.end()) {
+            return it->second;
+        }
         return defaultVisible;
     }
 };
@@ -46,6 +63,15 @@ public:
     void updateState(const std::string&, const QJsonObject&) override {}
     DeviceType getType() const override { return DeviceType::Light; }
     void prepareForCommand(const std::string&) override {}
+    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override {
+        std::string domain = "light";
+        size_t dotPos = topic.find('.');
+        if (dotPos != std::string::npos) {
+            domain = topic.substr(0, dotPos);
+        }
+        std::string service = (payload == "ON") ? "turn_on" : "turn_off";
+        return std::make_unique<GenericHaCommand>(haController, domain, service, topic);
+    }
 };
 
 class MockDeviceFactory : public IDeviceFactory {
@@ -74,4 +100,30 @@ TEST_F(SensorBridgeTest, PublishCommand_HandlesHierarchicalTopics) {
     EXPECT_EQ(mockHa.lastDomain, "light");
     EXPECT_EQ(mockHa.lastService, "turn_on");
     EXPECT_EQ(mockHa.lastEntityId, "light.living_room");
+}
+
+TEST_F(SensorBridgeTest, LanguageStorageAndRetrieval) {
+    // Default language when nothing is saved
+    EXPECT_EQ(bridge.getSavedLanguage(), "system");
+    
+    // Save language
+    bridge.saveLanguage("es");
+    EXPECT_EQ(bridge.getSavedLanguage(), "es");
+    
+    // Save another language
+    bridge.saveLanguage("de");
+    EXPECT_EQ(bridge.getSavedLanguage(), "de");
+}
+
+TEST_F(SensorBridgeTest, HaCredentialsAndUrls) {
+    // Default behavior when nothing is saved
+    EXPECT_EQ(bridge.getSavedHaUrl(), "");
+    EXPECT_EQ(bridge.getSavedHaToken(), "");
+    
+    bridge.saveHaCredentials("ws://192.168.1.100:8123/api/websocket", "my_secret_token");
+    EXPECT_EQ(bridge.getSavedHaUrl(), "ws://192.168.1.100:8123/api/websocket");
+    EXPECT_EQ(bridge.getSavedHaToken(), "my_secret_token");
+    
+    // Check camera proxy map URL generation
+    EXPECT_EQ(bridge.getHaMapUrl("camera.living_room"), "http://192.168.1.100:8123/api/camera_proxy/camera.living_room?token=my_secret_token");
 }
