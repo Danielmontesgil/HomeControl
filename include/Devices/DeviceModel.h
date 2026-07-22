@@ -23,7 +23,8 @@ public:
 		SupportsColorRole,
 		VacuumStateRole,
 		BatteryLevelRole,
-		FanSpeedRole
+		FanSpeedRole,
+		CapabilitiesRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);

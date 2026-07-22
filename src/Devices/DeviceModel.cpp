@@ -1,10 +1,10 @@
 #include "DeviceModel.h"
 #include "HomeDeviceBase.h"
-#include "IValuable.h"
-#include "ISwitchable.h"
-#include "IStoppable.h"
-#include "IColorable.h"
-#include "VacuumDevice.h"
+#include "SwitchableComponent.h"
+#include "DimmableComponent.h"
+#include "ColorableComponent.h"
+#include "StoppableComponent.h"
+#include "StatusComponent.h"
 
 DeviceModel::DeviceModel(QObject* parent) : QAbstractListModel (parent){}
 DeviceModel::~DeviceModel() = default;
@@ -23,7 +23,8 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {SupportsColorRole, "supportsColor"},
         {VacuumStateRole, "vacuumState"},
         {BatteryLevelRole, "batteryLevel"},
-        {FanSpeedRole, "fanSpeed"}
+        {FanSpeedRole, "fanSpeed"},
+        {CapabilitiesRole, "capabilities"}
     };
 }
 
@@ -52,53 +53,55 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
         case TopicRole:
             return device->getQStringTopic();
         case ValueRole:
-            if (auto* valuable = dynamic_cast<IValuable*>(device.get()))
+            if (auto* dimmable = device->getComponent("dimmable"))
             {
-                return valuable->getValue();
+                return static_cast<DimmableComponent*>(dimmable)->getLevel();
             }
             return QVariant();
         case IsOnRole:
-            if (auto* switchable = dynamic_cast<ISwitchable*>(device.get()))
+            if (auto* switchable = device->getComponent("switchable"))
             {
-                return switchable->isOn();
+                return static_cast<SwitchableComponent*>(switchable)->isOn();
             }
             return false;
         case SupportsStopRole:
-            return dynamic_cast<IStoppable*>(device.get()) != nullptr;
+            return device->hasComponent("stoppable");
         case IsMovingRole:
-            if (auto* stoppable = dynamic_cast<IStoppable*>(device.get()))
+            if (auto* stoppable = device->getComponent("stoppable"))
             {
-                return stoppable->isMoving();
+                return static_cast<StoppableComponent*>(stoppable)->isMoving();
             }
             return false;
         case TypeRole:
             return static_cast<int>(device->getType());
         case ColorRole:
-            if (auto* colorable = dynamic_cast<IColorable*>(device.get()))
+            if (auto* colorable = device->getComponent("colorable"))
             {
-                return colorable->getColor();
+                return static_cast<ColorableComponent*>(colorable)->getColor();
             }
             return QVariant();
         case SupportsColorRole:
-            return dynamic_cast<IColorable*>(device.get()) != nullptr;
+            return device->hasComponent("colorable");
         case VacuumStateRole:
-            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            if (auto* status = device->getComponent("status"))
             {
-                return vacuum->getVacuumState();
+                return static_cast<StatusComponent*>(status)->getStatusState();
             }
             return QVariant();
         case BatteryLevelRole:
-            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            if (auto* status = device->getComponent("status"))
             {
-                return vacuum->getBatteryLevel();
+                return static_cast<StatusComponent*>(status)->getBatteryLevel();
             }
             return QVariant();
         case FanSpeedRole:
-            if (auto* vacuum = dynamic_cast<VacuumDevice*>(device.get()))
+            if (auto* status = device->getComponent("status"))
             {
-                return vacuum->getFanSpeed();
+                return static_cast<StatusComponent*>(status)->getFanSpeed();
             }
             return QVariant();
+        case CapabilitiesRole:
+            return QVariant::fromValue(device->getComponentNames());
     }
     
     return QVariant();

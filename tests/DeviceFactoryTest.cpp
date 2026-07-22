@@ -6,23 +6,13 @@
 class DummyDevice : public HomeDeviceBase {
 public:
     DummyDevice(const std::string& id, const std::string& topic)
-        : HomeDeviceBase(id, topic) {}
-
-    DeviceType getType() const override { return DeviceType::Light; }
-    void prepareForCommand(const std::string& payload) override {}
-    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override { return nullptr; }
-    void updateState(const std::string& state, const QJsonObject& attributes) override {}
+        : HomeDeviceBase(id, topic, DeviceType::Light) {}
 };
 
 class AlternativeDummyDevice : public HomeDeviceBase {
 public:
     AlternativeDummyDevice(const std::string& id, const std::string& topic)
-        : HomeDeviceBase(id, topic) {}
-
-    DeviceType getType() const override { return DeviceType::Vacuum; }
-    void prepareForCommand(const std::string& payload) override {}
-    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override { return nullptr; }
-    void updateState(const std::string& state, const QJsonObject& attributes) override {}
+        : HomeDeviceBase(id, topic, DeviceType::Vacuum) {}
 };
 
 TEST(DeviceFactoryTest, RegisterAndCreate) {
@@ -55,6 +45,5 @@ TEST(DeviceFactoryTest, OverwriteRegistration) {
 
     auto device = factory.create("dummy", "id123", "topic123");
     ASSERT_NE(device, nullptr);
-    auto* altPtr = dynamic_cast<AlternativeDummyDevice*>(device.get());
-    EXPECT_NE(altPtr, nullptr);
+    EXPECT_EQ(device->getType(), DeviceType::Vacuum);
 }

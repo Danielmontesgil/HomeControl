@@ -4,7 +4,6 @@
 #include "HomeDeviceBase.h"
 #include "Commands/ICommand.h"
 #include "IDeviceFactory.h"
-#include "IStoppable.h"
 #include "ISettingsManager.h"
 #include <iostream>
 #include <QColor>
@@ -85,10 +84,7 @@ void SensorBridge::stopDevice(const QString& topic)
 {
     if (auto* device = m_deviceModel.findByTopic(topic))
     {
-        if (auto* stoppable = dynamic_cast<IStoppable*>(device))
-        {
-            stoppable->stop();
-        }
+        device->prepareForCommand("STOP");
         m_haController.callService("cover", "stop_cover", topic.toStdString());
     }
 }

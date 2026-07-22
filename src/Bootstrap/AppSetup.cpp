@@ -1,10 +1,12 @@
 #include "Bootstrap/AppSetup.h"
 #include "IDeviceFactory.h"
 #include "ISettingsManager.h"
-#include "LightDevice.h"
-#include "DimmableColorLightDevice.h"
-#include "RollerDevice.h"
-#include "VacuumDevice.h"
+#include "HomeDeviceBase.h"
+#include "SwitchableComponent.h"
+#include "DimmableComponent.h"
+#include "ColorableComponent.h"
+#include "StoppableComponent.h"
+#include "StatusComponent.h"
 #include <QGuiApplication>
 #include <QTranslator>
 #include <QLocale>
@@ -18,16 +20,28 @@ namespace Bootstrap::AppSetup {
 void registerDeviceTypes(IDeviceFactory& factory)
 {
     factory.registerType("Light", [](const std::string& id, const std::string& topic) {
-        return std::make_unique<LightDevice>(id, topic);
+        auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Light);
+        dev->addComponent(std::make_unique<SwitchableComponent>(dev.get()));
+        return dev;
     });
     factory.registerType("DimmableColorLight", [](const std::string& id, const std::string& topic) {
-        return std::make_unique<DimmableColorLightDevice>(id, topic);
+        auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Light);
+        dev->addComponent(std::make_unique<SwitchableComponent>(dev.get()));
+        dev->addComponent(std::make_unique<DimmableComponent>(dev.get()));
+        dev->addComponent(std::make_unique<ColorableComponent>(dev.get()));
+        return dev;
     });
     factory.registerType("Roller", [](const std::string& id, const std::string& topic) {
-        return std::make_unique<RollerDevice>(id, topic);
+        auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Roller);
+        dev->addComponent(std::make_unique<DimmableComponent>(dev.get()));
+        dev->addComponent(std::make_unique<StoppableComponent>(dev.get()));
+        return dev;
     });
     factory.registerType("Vacuum", [](const std::string& id, const std::string& topic) {
-        return std::make_unique<VacuumDevice>(id, topic);
+        auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Vacuum);
+        dev->addComponent(std::make_unique<SwitchableComponent>(dev.get()));
+        dev->addComponent(std::make_unique<StatusComponent>(dev.get()));
+        return dev;
     });
 }
 

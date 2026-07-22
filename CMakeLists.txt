@@ -36,10 +36,12 @@ set(PROJECT_SOURCES
     include/Commands/ICommand.h
     include/Commands/GenericHaCommand.h
     include/Bootstrap/AppSetup.h
-    src/Devices/LightDevice.cpp
-    src/Devices/RollerDevice.cpp
-    src/Devices/DimmableColorLightDevice.cpp
-    src/Devices/VacuumDevice.cpp
+    src/Devices/HomeDeviceBase.cpp
+    src/Devices/SwitchableComponent.cpp
+    src/Devices/DimmableComponent.cpp
+    src/Devices/ColorableComponent.cpp
+    src/Devices/StoppableComponent.cpp
+    src/Devices/StatusComponent.cpp
     src/Devices/JsonSettingsManager.cpp
     include/Core/ThreadSafeValue.h
     include/UI/SensorBridge.h
@@ -49,14 +51,12 @@ set(PROJECT_SOURCES
     include/Devices/IDeviceFactory.h
     include/Devices/DeviceFactory.h
     include/Devices/DeviceModel.h
-    include/Devices/IStoppable.h
-    include/Devices/IValuable.h
-    include/Devices/ISwitchable.h
-    include/Devices/IColorable.h
-    include/Devices/LightDevice.h
-    include/Devices/RollerDevice.h
-    include/Devices/DimmableColorLightDevice.h
-    include/Devices/VacuumDevice.h
+    include/Devices/IDeviceComponent.h
+    include/Devices/SwitchableComponent.h
+    include/Devices/DimmableComponent.h
+    include/Devices/ColorableComponent.h
+    include/Devices/StoppableComponent.h
+    include/Devices/StatusComponent.h
     include/UI/HaImageProvider.h
     include/Devices/ISettingsManager.h
     include/Devices/JsonSettingsManager.h
@@ -135,16 +135,13 @@ list(REMOVE_ITEM LIB_SOURCES src/main.cpp)
 
 add_executable(HomeControlTests
     tests/ThreadSafeValueTest.cpp
-    tests/RollerDeviceTest.cpp
-    tests/LightDeviceTest.cpp
     tests/SensorBridgeTest.cpp
-    tests/VacuumDeviceTest.cpp
     tests/JsonSettingsManagerTest.cpp
-    tests/DimmableColorLightDeviceTest.cpp
     tests/DeviceFactoryTest.cpp
     tests/DeviceModelTest.cpp
     tests/GenericHaCommandTest.cpp
     tests/HaWebSocketControllerTest.cpp
+    tests/DeviceComponentTest.cpp
     ${LIB_SOURCES}
 )
 

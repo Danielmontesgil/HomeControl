@@ -96,28 +96,25 @@ void JsonSettingsManager::load()
 void JsonSettingsManager::save()
 {
     QJsonObject root;
+    QJsonObject devicesObj;
+    std::unordered_map<std::string, QJsonObject> devConfigs;
+
+    for (const auto& [entityId, alias] : m_aliases)
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        QJsonObject devicesObj;
-        std::unordered_map<std::string, QJsonObject> devConfigs;
-
-        for (const auto& [entityId, alias] : m_aliases)
-        {
-            devConfigs[entityId]["alias"] = QString::fromStdString(alias);
-        }
-
-        for (const auto& [entityId, visible] : m_visibilities)
-        {
-            devConfigs[entityId]["visible"] = visible;
-        }
-
-        for (const auto& [entityId, config] : devConfigs)
-        {
-            devicesObj[QString::fromStdString(entityId)] = config;
-        }
-
-        root["devices"] = devicesObj;
+        devConfigs[entityId]["alias"] = QString::fromStdString(alias);
     }
+
+    for (const auto& [entityId, visible] : m_visibilities)
+    {
+        devConfigs[entityId]["visible"] = visible;
+    }
+
+    for (const auto& [entityId, config] : devConfigs)
+    {
+        devicesObj[QString::fromStdString(entityId)] = config;
+    }
+
+    root["devices"] = devicesObj;
 
     const std::string filepath = m_filepath;
 

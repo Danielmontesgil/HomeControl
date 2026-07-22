@@ -6,6 +6,7 @@
 #include "DeviceModel.h"
 #include "IDeviceFactory.h"
 #include "ISettingsManager.h"
+#include "SwitchableComponent.h"
 #include "Commands/GenericHaCommand.h"
 
 class MockSettingsManager : public ISettingsManager {
@@ -35,7 +36,6 @@ public:
     }
 };
 
-// Mock para interceptar las llamadas al controlador MQTT desde el Bridge
 class MockHaController : public IHaController {
 public:
     std::string lastDomain;
@@ -56,22 +56,10 @@ public:
     }
 };
 
-// Clase Dummy de dispositivo para el test
 class DummyDevice : public HomeDeviceBase {
 public:
-    using HomeDeviceBase::HomeDeviceBase;
-    void updateState(const std::string&, const QJsonObject&) override {}
-    DeviceType getType() const override { return DeviceType::Light; }
-    void prepareForCommand(const std::string&) override {}
-    std::unique_ptr<ICommand> parseCommand(const std::string& payload, IHaController& haController) override {
-        std::string domain = "light";
-        size_t dotPos = topic.find('.');
-        if (dotPos != std::string::npos) {
-            domain = topic.substr(0, dotPos);
-        }
-        std::string service = (payload == "ON") ? "turn_on" : "turn_off";
-        return std::make_unique<GenericHaCommand>(haController, domain, service, topic);
-    }
+    DummyDevice(const std::string& id, const std::string& topic)
+        : HomeDeviceBase(id, topic, DeviceType::Light) {}
 };
 
 class MockDeviceFactory : public IDeviceFactory {
@@ -91,9 +79,9 @@ protected:
     SensorBridge bridge{mockFactory, deviceModel, mockHa, mockSettings};
 };
 
-// Verificamos que funciona con diferentes niveles de tópicos
 TEST_F(SensorBridgeTest, PublishCommand_HandlesHierarchicalTopics) {
     auto dummy = std::make_unique<DummyDevice>("LightLiving", "light.living_room");
+    dummy->addComponent(std::make_unique<SwitchableComponent>(dummy.get()));
     deviceModel.addDevice(std::move(dummy));
     bridge.publishCommand("light.living_room", "ON");
     
@@ -103,20 +91,16 @@ TEST_F(SensorBridgeTest, PublishCommand_HandlesHierarchicalTopics) {
 }
 
 TEST_F(SensorBridgeTest, LanguageStorageAndRetrieval) {
-    // Default language when nothing is saved
     EXPECT_EQ(bridge.getSavedLanguage(), "system");
     
-    // Save language
     bridge.saveLanguage("es");
     EXPECT_EQ(bridge.getSavedLanguage(), "es");
     
-    // Save another language
     bridge.saveLanguage("de");
     EXPECT_EQ(bridge.getSavedLanguage(), "de");
 }
 
 TEST_F(SensorBridgeTest, HaCredentialsAndUrls) {
-    // Default behavior when nothing is saved
     EXPECT_EQ(bridge.getSavedHaUrl(), "");
     EXPECT_EQ(bridge.getSavedHaToken(), "");
     
@@ -124,6 +108,5 @@ TEST_F(SensorBridgeTest, HaCredentialsAndUrls) {
     EXPECT_EQ(bridge.getSavedHaUrl(), "ws://192.168.1.100:8123/api/websocket");
     EXPECT_EQ(bridge.getSavedHaToken(), "my_secret_token");
     
-    // Check camera proxy map URL generation
     EXPECT_EQ(bridge.getHaMapUrl("camera.living_room"), "http://192.168.1.100:8123/api/camera_proxy/camera.living_room?token=my_secret_token");
 }
