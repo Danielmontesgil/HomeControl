@@ -29,4 +29,18 @@ public:
                              const std::string& service, 
                              const std::string& entityId, 
                              const QJsonObject& serviceData = {}) = 0;
+
+    // Diagnostics / Chaos Engineering defaults
+    virtual bool isConnected() const { return false; }
+    virtual int getLatencyMs() const { return -1; }
+    virtual int getReconnectAttempts() const { return 0; }
+    virtual int getNextReconnectDelayMs() const { return 0; }
+    virtual std::string getLastDisconnectReason() const { return "None"; }
+
+    virtual void forceDisconnect() {}
+    virtual void setSimulationLatency(int /*ms*/) {}
+    virtual void setSimulationAuthFail(bool /*enable*/) {}
+    virtual void setSimulationOfflineMode(bool /*enable*/) {}
+    virtual bool isVerboseLoggingEnabled() const { return false; }
+    virtual void setVerboseLogging(bool /*enable*/) {}
 };

@@ -17,20 +17,42 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
     connect(&m_webSocket, &QWebSocket::textMessageReceived, this, &HaWebSocketController::onTextMessageReceived);
     
     // Catch network errors for console diagnostics
-    connect(&m_webSocket, &QWebSocket::errorOccurred, this, [](QAbstractSocket::SocketError error) {
+    connect(&m_webSocket, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
         std::cerr << "[HaWebSocketController] Socket error: " << error << std::endl;
+        m_lastDisconnectReason = QString("Socket Error: %1").arg(error);
+        emit networkMetricsChanged();
     });
 
     // Initialize reconnect timer
     m_reconnectTimer = new QTimer(this);
-    m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
-        if (!m_isAuthenticated && m_shouldReconnect)
+        if (!m_isAuthenticated && m_shouldReconnect && !m_simulationOfflineMode)
         {
             std::cout << "[HaWebSocketController] Reconnection timer triggered, opening WebSocket..." << std::endl;
             m_webSocket.open(QUrl(QString::fromStdString(m_url)));
         }
     });
+
+    // Initialize ping timer for latency monitoring
+    m_pingTimer = new QTimer(this);
+    connect(m_pingTimer, &QTimer::timeout, this, [this]() {
+        if (m_isAuthenticated)
+        {
+            int pingId = nextMessageId();
+            QJsonObject pingObj;
+            pingObj["id"] = pingId;
+            pingObj["type"] = "ping";
+            
+            QJsonDocument doc(pingObj);
+            
+            QElapsedTimer timer;
+            timer.start();
+            m_pendingPings[pingId] = timer;
+            
+            sendTextMessageInternal(doc.toJson(QJsonDocument::Compact));
+        }
+    });
+    m_pingTimer->start(5000);
 }
 
 HaWebSocketController::~HaWebSocketController()
@@ -39,6 +61,10 @@ HaWebSocketController::~HaWebSocketController()
     if (m_reconnectTimer)
     {
         m_reconnectTimer->stop();
+    }
+    if (m_pingTimer)
+    {
+        m_pingTimer->stop();
     }
     m_webSocket.close();
 }
@@ -49,7 +75,17 @@ void HaWebSocketController::connectToHa(const std::string& url, const std::strin
     m_token = token;
     m_isAuthenticated = false;
     m_shouldReconnect = true;
+    m_lastDisconnectReason = "None";
     resetBackoff();
+    emit networkMetricsChanged();
+
+    if (m_simulationOfflineMode)
+    {
+        m_lastDisconnectReason = "Offline Mode Simulation Active";
+        emit networkMetricsChanged();
+        std::cout << "[HaWebSocketController] Connection blocked: Simulation Offline Mode is active." << std::endl;
+        return;
+    }
 
     std::cout << "[HaWebSocketController] Connecting to " << m_url << "..." << std::endl;
     m_webSocket.open(QUrl(QString::fromStdString(m_url)));
@@ -79,7 +115,7 @@ void HaWebSocketController::callService(const std::string& domain,
     requestObj["service_data"] = targetData;
 
     QJsonDocument doc(requestObj);
-    m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+    sendTextMessageInternal(doc.toJson(QJsonDocument::Compact));
 }
 
 void HaWebSocketController::onConnected()
@@ -89,19 +125,34 @@ void HaWebSocketController::onConnected()
     {
         m_reconnectTimer->stop();
     }
+    m_nextReconnectDelayMs = 0;
+    emit networkMetricsChanged();
 }
 
 void HaWebSocketController::onDisconnected()
 {
     std::cout << "[HaWebSocketController] WebSocket connection lost." << std::endl;
     m_isAuthenticated = false;
+    m_latencyMs = -1;
+    m_pendingPings.clear();
+
+    if (m_lastDisconnectReason == "None")
+    {
+        m_lastDisconnectReason = "Connection Lost";
+    }
+
     emit disconnected();
-    if (m_shouldReconnect && m_reconnectTimer)
+    emit networkMetricsChanged();
+
+    if (m_shouldReconnect && m_reconnectTimer && !m_simulationOfflineMode)
     {
         int delayMs = calculateNextBackoffDelayMs();
         std::cout << "[HaWebSocketController] Scheduling reconnect attempt #" << m_retryAttemptCount 
                   << " in " << delayMs << " ms." << std::endl;
+        m_nextReconnectDelayMs = delayMs;
+        m_reconnectTimerStart.start();
         m_reconnectTimer->start(delayMs);
+        emit networkMetricsChanged();
     }
 }
 
@@ -133,7 +184,27 @@ void HaWebSocketController::resetBackoff()
 
 void HaWebSocketController::onTextMessageReceived(const QString& message)
 {
-    parseHaMessage(message);
+    const bool isPong = message.contains("\"type\":\"pong\"") || message.contains("\"type\": \"pong\"");
+    if (m_verboseLogging && !isPong)
+    {
+        std::cout << "[WS RCVD] " << message.toStdString() << std::endl;
+    }
+
+    if (!isPong)
+    {
+        emit messageLogged("in", message);
+    }
+    
+    if (m_simulationLatency > 0)
+    {
+        QTimer::singleShot(m_simulationLatency, this, [this, message]() {
+            parseHaMessage(message);
+        });
+    }
+    else
+    {
+        parseHaMessage(message);
+    }
 }
 
 void HaWebSocketController::authenticate()
@@ -142,10 +213,18 @@ void HaWebSocketController::authenticate()
     
     QJsonObject authObj;
     authObj["type"] = "auth";
-    authObj["access_token"] = QString::fromStdString(m_token);
+    if (m_simulationAuthFail)
+    {
+        authObj["access_token"] = "simulated_invalid_token_12345";
+        std::cout << "[HaWebSocketController] Simulating Auth Failure: sending invalid token." << std::endl;
+    }
+    else
+    {
+        authObj["access_token"] = QString::fromStdString(m_token);
+    }
 
     QJsonDocument doc(authObj);
-    m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+    sendTextMessageInternal(doc.toJson(QJsonDocument::Compact));
 }
 
 void HaWebSocketController::subscribeToEvents()
@@ -158,7 +237,7 @@ void HaWebSocketController::subscribeToEvents()
     subObj["event_type"] = "state_changed";
 
     QJsonDocument doc(subObj);
-    m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+    sendTextMessageInternal(doc.toJson(QJsonDocument::Compact));
 }
 
 void HaWebSocketController::fetchInitialStates()
@@ -170,7 +249,7 @@ void HaWebSocketController::fetchInitialStates()
     statesObj["type"] = "get_states";
 
     QJsonDocument doc(statesObj);
-    m_webSocket.sendTextMessage(doc.toJson(QJsonDocument::Compact));
+    sendTextMessageInternal(doc.toJson(QJsonDocument::Compact));
 }
 
 void HaWebSocketController::parseHaMessage(const QString& message)
@@ -201,8 +280,10 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     {
         std::cout << "[HaWebSocketController] Authentication successfully completed." << std::endl;
         m_isAuthenticated = true;
+        m_lastDisconnectReason = "None";
         resetBackoff();
         emit connected();
+        emit networkMetricsChanged();
 
         // After successful authentication, sync states and subscribe to real-time events
         fetchInitialStates();
@@ -218,7 +299,20 @@ void HaWebSocketController::parseHaMessage(const QString& message)
             m_reconnectTimer->stop();
         }
         resetBackoff();
+        m_lastDisconnectReason = "Authentication Failed: Invalid Token";
+        emit networkMetricsChanged();
         m_webSocket.close();
+    }
+    else if (msgType == "pong")
+    {
+        int id = rootObj["id"].toInt();
+        auto it = m_pendingPings.find(id);
+        if (it != m_pendingPings.end())
+        {
+            m_latencyMs = static_cast<int>(it->second.elapsed());
+            m_pendingPings.erase(it);
+            emit networkMetricsChanged();
+        }
     }
     // Responses to sent commands (like get_states)
     else if (msgType == "result")
@@ -310,4 +404,109 @@ void HaWebSocketController::parseHaMessage(const QString& message)
             }
         }
     }
+}
+
+bool HaWebSocketController::isConnected() const
+{
+    return m_isAuthenticated;
+}
+
+int HaWebSocketController::getLatencyMs() const
+{
+    return m_latencyMs;
+}
+
+int HaWebSocketController::getReconnectAttempts() const
+{
+    return m_retryAttemptCount;
+}
+
+int HaWebSocketController::getNextReconnectDelayMs() const
+{
+    if (m_reconnectTimer && m_reconnectTimer->isActive())
+    {
+        qint64 elapsed = m_reconnectTimerStart.elapsed();
+        qint64 remaining = m_nextReconnectDelayMs - elapsed;
+        return std::max(0, static_cast<int>(remaining));
+    }
+    return 0;
+}
+
+std::string HaWebSocketController::getLastDisconnectReason() const
+{
+    return m_lastDisconnectReason.toStdString();
+}
+
+void HaWebSocketController::forceDisconnect()
+{
+    std::cout << "[HaWebSocketController] Force Disconnect triggered by developer." << std::endl;
+    m_lastDisconnectReason = "Forced Disconnect (DevTools)";
+    emit networkMetricsChanged();
+    m_webSocket.close();
+}
+
+void HaWebSocketController::setSimulationLatency(int ms)
+{
+    m_simulationLatency = ms;
+    std::cout << "[HaWebSocketController] Simulation latency set to " << ms << " ms." << std::endl;
+    emit networkMetricsChanged();
+}
+
+void HaWebSocketController::setSimulationAuthFail(bool enable)
+{
+    m_simulationAuthFail = enable;
+    std::cout << "[HaWebSocketController] Simulation Auth Fail set to " << (enable ? "true" : "false") << std::endl;
+    emit networkMetricsChanged();
+}
+
+void HaWebSocketController::setSimulationOfflineMode(bool enable)
+{
+    m_simulationOfflineMode = enable;
+    std::cout << "[HaWebSocketController] Simulation Offline Mode set to " << (enable ? "true" : "false") << std::endl;
+    if (enable)
+    {
+        if (m_reconnectTimer)
+        {
+            m_reconnectTimer->stop();
+        }
+        m_lastDisconnectReason = "Offline Mode Simulation Active";
+        m_webSocket.close();
+    }
+    emit networkMetricsChanged();
+}
+
+void HaWebSocketController::sendTextMessageInternal(const QString& message)
+{
+    const bool isPing = message.contains("\"type\":\"ping\"") || message.contains("\"type\": \"ping\"");
+    if (m_verboseLogging && !isPing)
+    {
+        std::cout << "[WS SENT] " << message.toStdString() << std::endl;
+    }
+
+    if (!isPing)
+    {
+        emit messageLogged("out", message);
+    }
+    
+    if (m_simulationLatency > 0)
+    {
+        QTimer::singleShot(m_simulationLatency, this, [this, message]() {
+            m_webSocket.sendTextMessage(message);
+        });
+    }
+    else
+    {
+        m_webSocket.sendTextMessage(message);
+    }
+}
+
+bool HaWebSocketController::isVerboseLoggingEnabled() const
+{
+    return m_verboseLogging;
+}
+
+void HaWebSocketController::setVerboseLogging(bool enable)
+{
+    m_verboseLogging = enable;
+    emit networkMetricsChanged();
 }
