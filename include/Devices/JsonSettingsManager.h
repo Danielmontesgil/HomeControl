@@ -10,7 +10,7 @@ class JsonSettingsManager : public ISettingsManager
 {
 public:
     explicit JsonSettingsManager(const std::string& filepath);
-    ~JsonSettingsManager() override = default;
+    ~JsonSettingsManager() override;
 
     void saveAlias(const std::string& entityId, const std::string& alias) override;
     std::string getAlias(const std::string& entityId, const std::string& defaultAlias) override;
@@ -23,6 +23,7 @@ private:
     std::unordered_map<std::string, std::string> m_aliases;
     std::unordered_map<std::string, bool> m_visibilities;
     std::mutex m_mutex;
+    std::mutex m_writeMutex;
 
     void load();
     void save();

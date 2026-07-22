@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "Devices/JsonSettingsManager.h"
 #include <QFile>
+#include <QThreadPool>
 
 class JsonSettingsManagerTest : public ::testing::Test {
 protected:
@@ -12,7 +13,8 @@ protected:
     }
 
     void TearDown() override {
-        // Limpiamos después del test
+        // Limpiamos las tareas pendientes del thread pool y eliminamos el archivo después del test
+        QThreadPool::globalInstance()->waitForDone();
         QFile::remove(QString::fromStdString(testFilename));
     }
 };
@@ -45,7 +47,8 @@ TEST_F(JsonSettingsManagerTest, PersistentReload) {
         JsonSettingsManager manager1(testFilename);
         manager1.saveAlias("light.living", "Luz Persistida");
         manager1.saveVisibility("light.living", false);
-        // Al salir del bloque, se destruye y se asegura la escritura
+        // Garantizamos la finalización de las tareas en el thread pool antes de recargar
+        QThreadPool::globalInstance()->waitForDone();
     }
     
     // Creamos una nueva instancia apuntando al mismo archivo físico
@@ -53,3 +56,27 @@ TEST_F(JsonSettingsManagerTest, PersistentReload) {
     EXPECT_EQ(manager2.getAlias("light.living", "Default"), "Luz Persistida");
     EXPECT_FALSE(manager2.getVisibility("light.living", true));
 }
+
+TEST_F(JsonSettingsManagerTest, AsyncConcurrentWritesAndPersistence) {
+    {
+        JsonSettingsManager manager(testFilename);
+        
+        // Simular múltiples escrituras asíncronas consecutivas y actualizaciones rápido
+        manager.saveAlias("light.kitchen", "Cocina");
+        manager.saveVisibility("light.kitchen", true);
+        manager.saveAlias("sensor.temp", "Temperatura Salon");
+        manager.saveVisibility("sensor.temp", false);
+        manager.saveAlias("light.kitchen", "Cocina Principal"); // Actualizar alias existente
+        
+        // Esperamos a que los hilos asíncronos finalicen el volcado a disco
+        QThreadPool::globalInstance()->waitForDone();
+    }
+    
+    // Verificar recarga física del archivo guardado de forma asíncrona
+    JsonSettingsManager managerReloaded(testFilename);
+    EXPECT_EQ(managerReloaded.getAlias("light.kitchen", "Default"), "Cocina Principal");
+    EXPECT_TRUE(managerReloaded.getVisibility("light.kitchen", false));
+    EXPECT_EQ(managerReloaded.getAlias("sensor.temp", "Default"), "Temperatura Salon");
+    EXPECT_FALSE(managerReloaded.getVisibility("sensor.temp", true));
+}
+

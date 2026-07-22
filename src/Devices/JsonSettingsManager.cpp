@@ -2,12 +2,19 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QThreadPool>
+#include <QRunnable>
 #include <iostream>
 
 JsonSettingsManager::JsonSettingsManager(const std::string& filepath)
     : m_filepath(filepath)
 {
     load();
+}
+
+JsonSettingsManager::~JsonSettingsManager()
+{
+    QThreadPool::globalInstance()->waitForDone();
 }
 
 void JsonSettingsManager::saveAlias(const std::string& entityId, const std::string& alias)
@@ -88,38 +95,44 @@ void JsonSettingsManager::load()
 
 void JsonSettingsManager::save()
 {
-    QJsonObject devicesObj;
-
-    // Collect all entity IDs
-    std::unordered_map<std::string, QJsonObject> devConfigs;
-
-    for (const auto& [entityId, alias] : m_aliases)
-    {
-        devConfigs[entityId]["alias"] = QString::fromStdString(alias);
-    }
-
-    for (const auto& [entityId, visible] : m_visibilities)
-    {
-        devConfigs[entityId]["visible"] = visible;
-    }
-
-    for (const auto& [entityId, config] : devConfigs)
-    {
-        devicesObj[QString::fromStdString(entityId)] = config;
-    }
-
     QJsonObject root;
-    root["devices"] = devicesObj;
-
-    QJsonDocument doc(root);
-    QFile file(QString::fromStdString(m_filepath));
-    if (!file.open(QIODevice::WriteOnly))
     {
-        std::cerr << "[JsonSettingsManager] Error: Unable to open file for writing: " 
-                  << m_filepath << std::endl;
-        return;
+        std::lock_guard<std::mutex> lock(m_mutex);
+        QJsonObject devicesObj;
+        std::unordered_map<std::string, QJsonObject> devConfigs;
+
+        for (const auto& [entityId, alias] : m_aliases)
+        {
+            devConfigs[entityId]["alias"] = QString::fromStdString(alias);
+        }
+
+        for (const auto& [entityId, visible] : m_visibilities)
+        {
+            devConfigs[entityId]["visible"] = visible;
+        }
+
+        for (const auto& [entityId, config] : devConfigs)
+        {
+            devicesObj[QString::fromStdString(entityId)] = config;
+        }
+
+        root["devices"] = devicesObj;
     }
 
-    file.write(doc.toJson(QJsonDocument::Indented));
-    file.close();
+    const std::string filepath = m_filepath;
+
+    QThreadPool::globalInstance()->start(QRunnable::create([this, filepath, root]() {
+        std::lock_guard<std::mutex> fileLock(m_writeMutex);
+        QFile file(QString::fromStdString(filepath));
+        if (!file.open(QIODevice::WriteOnly))
+        {
+            std::cerr << "[JsonSettingsManager] Error: Unable to open file for writing: " 
+                      << filepath << std::endl;
+            return;
+        }
+
+        QJsonDocument doc(root);
+        file.write(doc.toJson(QJsonDocument::Indented));
+        file.close();
+    }));
 }
