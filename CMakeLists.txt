@@ -68,7 +68,11 @@ qt_add_qml_module(HomeControl
     URI SensorsApp
     VERSION 1.0
     RESOURCE_PREFIX "/"
-    QML_FILES main.qml
+    QML_FILES
+        main.qml
+        NetworkStatusIndicator.qml
+        NetworkDiagnosticsSheet.qml
+        DevToolsConsole.qml
 )
 
 qt_add_translations(HomeControl

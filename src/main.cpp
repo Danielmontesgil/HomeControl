@@ -37,6 +37,10 @@ int main(int argc, char *argv[]) {
     
     QObject::connect(&haController, &HaWebSocketController::deviceDiscovered, &bridge, &SensorBridge::onDeviceDiscovered);
     QObject::connect(&haController, &HaWebSocketController::deviceStateChanged, &bridge, &SensorBridge::onDeviceStateChanged);
+    QObject::connect(&haController, &HaWebSocketController::connected, &bridge, &SensorBridge::networkChanged);
+    QObject::connect(&haController, &HaWebSocketController::disconnected, &bridge, &SensorBridge::networkChanged);
+    QObject::connect(&haController, &HaWebSocketController::networkMetricsChanged, &bridge, &SensorBridge::networkChanged);
+    QObject::connect(&haController, &HaWebSocketController::messageLogged, &bridge, &SensorBridge::websocketMessageLogged);
 
     auto [haUrl, haToken] = Bootstrap::AppSetup::loadHaCredentials(settings);
 

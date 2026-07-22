@@ -3,6 +3,8 @@
 #include <QWebSocket>
 #include <QJsonObject>
 #include <QTimer>
+#include <QElapsedTimer>
+#include <map>
 #include "IHaController.h"
 
 /**
@@ -25,6 +27,20 @@ public:
                      const std::string& entityId, 
                      const QJsonObject& serviceData = {}) override;
 
+    // Diagnostics / Chaos Engineering Overrides
+    bool isConnected() const override;
+    int getLatencyMs() const override;
+    int getReconnectAttempts() const override;
+    int getNextReconnectDelayMs() const override;
+    std::string getLastDisconnectReason() const override;
+
+    void forceDisconnect() override;
+    void setSimulationLatency(int ms) override;
+    void setSimulationAuthFail(bool enable) override;
+    void setSimulationOfflineMode(bool enable) override;
+    bool isVerboseLoggingEnabled() const override;
+    void setVerboseLogging(bool enable) override;
+
     // Testing/state inspection helper
     bool isAuthenticated() const { return m_isAuthenticated; }
     int retryAttemptCount() const { return m_retryAttemptCount; }
@@ -35,6 +51,8 @@ public:
     static constexpr double JITTER_FACTOR = 0.20;
 
 signals:
+    void networkMetricsChanged();
+    void messageLogged(const QString& direction, const QString& message);
     /**
      * @brief Emitted when the physical connection and the authentication handshake succeed.
      */
@@ -73,10 +91,25 @@ private:
     std::string m_url;
     std::string m_token;
     QTimer* m_reconnectTimer{nullptr};
+    QTimer* m_pingTimer{nullptr};
+    QElapsedTimer m_reconnectTimerStart;
+    std::map<int, QElapsedTimer> m_pendingPings;
+    
     int m_messageId{1};
     bool m_isAuthenticated{false};
     bool m_shouldReconnect{true};
     int m_retryAttemptCount{0};
+    
+    // Diagnostics values
+    int m_latencyMs{-1};
+    int m_nextReconnectDelayMs{0};
+    QString m_lastDisconnectReason{"None"};
+    
+    // Chaos simulation flags
+    int m_simulationLatency{0};
+    bool m_simulationAuthFail{false};
+    bool m_simulationOfflineMode{false};
+    bool m_verboseLogging{false};
 
     void authenticate();
     void subscribeToEvents();
@@ -86,6 +119,9 @@ private:
     // Calculates backoff delay in milliseconds with exponential growth and 20% random jitter
     int calculateNextBackoffDelayMs();
     void resetBackoff();
+    
+    // Sends JSON over WebSocket with optional simulation delay
+    void sendTextMessageInternal(const QString& message);
     
     // Generates a unique sequential message ID for each request
     int nextMessageId() { return m_messageId++; }
