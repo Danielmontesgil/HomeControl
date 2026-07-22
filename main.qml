@@ -36,19 +36,27 @@ ApplicationWindow {
         spacing: 20
         visible: tabBar.currentIndex === 0
 
-        ColumnLayout {
+        RowLayout {
             Layout.fillWidth: true
-            spacing: 5
-            Text {
-                text: qsTr("My Home")
-                font.pixelSize: 32
-                font.weight: Font.Black
-                color: "#1A237E"
+            ColumnLayout {
+                spacing: 5
+                Layout.fillWidth: true
+                Text {
+                    text: qsTr("My Home")
+                    font.pixelSize: 32
+                    font.weight: Font.Black
+                    color: "#1A237E"
+                }
+                Text {
+                    text: qsTr("System Online • %1 devices").arg(_lightCount + _rollerCount + _vacuumCount)
+                    font.pixelSize: 13
+                    color: "#4CAF50"
+                }
             }
-            Text {
-                text: qsTr("System Online • %1 devices").arg(_lightCount + _rollerCount + _vacuumCount)
-                font.pixelSize: 13
-                color: "#4CAF50"
+            NetworkStatusIndicator {
+                id: netIndicator
+                Layout.alignment: Qt.AlignTop | Qt.AlignRight
+                onClicked: diagnosticsSheet.open()
             }
         }
 
@@ -944,6 +952,29 @@ ApplicationWindow {
         
         onAccepted: {
             sensorBridge.renameDevice(deviceToRename, aliasInput.text)
+        }
+    }
+
+    NetworkDiagnosticsSheet {
+        id: diagnosticsSheet
+        onOpenDevTools: {
+            devToolsLoader.active = true
+            devToolsLoader.item.open()
+        }
+    }
+
+    Loader {
+        id: devToolsLoader
+        active: false
+        source: sensorBridge.isDebugBuild ? "DevToolsConsole.qml" : ""
+    }
+
+    Shortcut {
+        sequence: "Ctrl+Shift+D"
+        enabled: sensorBridge.isDebugBuild
+        onActivated: {
+            devToolsLoader.active = true
+            devToolsLoader.item.open()
         }
     }
 

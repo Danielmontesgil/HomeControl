@@ -12,6 +12,13 @@ class SensorBridge : public QObject
     Q_OBJECT
 
     Q_PROPERTY(DeviceModel* devices READ getDevices CONSTANT)
+    Q_PROPERTY(bool haConnected READ isHaConnected NOTIFY networkChanged)
+    Q_PROPERTY(int haLatency READ getHaLatency NOTIFY networkChanged)
+    Q_PROPERTY(int haReconnectAttempts READ getHaReconnectAttempts NOTIFY networkChanged)
+    Q_PROPERTY(int haNextReconnectDelay READ getHaNextReconnectDelay NOTIFY networkChanged)
+    Q_PROPERTY(QString haLastDisconnectReason READ getHaLastDisconnectReason NOTIFY networkChanged)
+    Q_PROPERTY(bool isDebugBuild READ isDebugBuild CONSTANT)
+    Q_PROPERTY(bool verboseLogging READ isVerboseLoggingEnabled WRITE setVerboseLogging NOTIFY networkChanged)
     
 public:
     explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent = nullptr);
@@ -27,6 +34,22 @@ public:
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
 
+    bool isHaConnected() const;
+    int getHaLatency() const;
+    int getHaReconnectAttempts() const;
+    int getHaNextReconnectDelay() const;
+    QString getHaLastDisconnectReason() const;
+    bool isDebugBuild() const;
+    bool isVerboseLoggingEnabled() const;
+    void setVerboseLogging(bool enable);
+
+    Q_INVOKABLE void forceDisconnect();
+    Q_INVOKABLE void setSimulationLatency(int ms);
+    Q_INVOKABLE void setSimulationAuthFail(bool enable);
+    Q_INVOKABLE void setSimulationOfflineMode(bool enable);
+    Q_INVOKABLE void reconnect();
+    Q_INVOKABLE void copyToClipboard(const QString& text);
+
     void setHaCredentials(const QString& url, const QString& token);
     Q_INVOKABLE void saveHaCredentials(const QString& url, const QString& token);
     Q_INVOKABLE QString getSavedHaUrl() const;
@@ -41,6 +64,8 @@ public slots:
     
 signals:
     void countChanged();
+    void networkChanged();
+    void websocketMessageLogged(const QString& direction, const QString& message);
     
 private:
     IHaController& m_haController;

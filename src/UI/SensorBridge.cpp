@@ -9,6 +9,8 @@
 #include <iostream>
 #include <QColor>
 #include <QJsonArray>
+#include <QGuiApplication>
+#include <QClipboard>
 
 SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent) 
     : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel), m_settingsManager(settingsManager)
@@ -174,5 +176,82 @@ QString SensorBridge::getSavedLanguage() const
 void SensorBridge::saveLanguage(const QString& lang)
 {
     m_settingsManager.saveAlias("system.language", lang.toStdString());
+}
+
+bool SensorBridge::isHaConnected() const
+{
+    return m_haController.isConnected();
+}
+
+int SensorBridge::getHaLatency() const
+{
+    return m_haController.getLatencyMs();
+}
+
+int SensorBridge::getHaReconnectAttempts() const
+{
+    return m_haController.getReconnectAttempts();
+}
+
+int SensorBridge::getHaNextReconnectDelay() const
+{
+    return m_haController.getNextReconnectDelayMs();
+}
+
+QString SensorBridge::getHaLastDisconnectReason() const
+{
+    return QString::fromStdString(m_haController.getLastDisconnectReason());
+}
+
+bool SensorBridge::isDebugBuild() const
+{
+#ifdef QT_DEBUG
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool SensorBridge::isVerboseLoggingEnabled() const
+{
+    return m_haController.isVerboseLoggingEnabled();
+}
+
+void SensorBridge::setVerboseLogging(bool enable)
+{
+    m_haController.setVerboseLogging(enable);
+}
+
+void SensorBridge::forceDisconnect()
+{
+    m_haController.forceDisconnect();
+}
+
+void SensorBridge::setSimulationLatency(int ms)
+{
+    m_haController.setSimulationLatency(ms);
+}
+
+void SensorBridge::setSimulationAuthFail(bool enable)
+{
+    m_haController.setSimulationAuthFail(enable);
+}
+
+void SensorBridge::setSimulationOfflineMode(bool enable)
+{
+    m_haController.setSimulationOfflineMode(enable);
+}
+
+void SensorBridge::reconnect()
+{
+    m_haController.connectToHa(getSavedHaUrl().toStdString(), getSavedHaToken().toStdString());
+}
+
+void SensorBridge::copyToClipboard(const QString& text)
+{
+    if (auto* clipboard = QGuiApplication::clipboard())
+    {
+        clipboard->setText(text);
+    }
 }
 
