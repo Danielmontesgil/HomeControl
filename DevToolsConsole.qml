@@ -36,15 +36,30 @@ Popup {
         // Title and Close
         RowLayout {
             Layout.fillWidth: true
-            Text {
-                text: "🛠️ DevTools Control Panel"
-                font.pixelSize: 18
-                font.weight: Font.Bold
-                color: "#F1F5F9"
+            ColumnLayout {
+                spacing: 2
                 Layout.fillWidth: true
+                Text {
+                    text: "🛠️ DevTools Control Panel"
+                    font.pixelSize: 18
+                    font.weight: Font.Bold
+                    color: "#F1F5F9"
+                }
+                Text {
+                    text: "Version: " + (sensorBridge.buildVersion || "Unknown") + " | Build: #" + (sensorBridge.buildNumber || "0")
+                    font.pixelSize: 11
+                    font.weight: Font.Bold
+                    color: "#818CF8"
+                }
+                Text {
+                    text: "Compiled: " + (sensorBridge.buildTimestamp || "Unknown")
+                    font.pixelSize: 10
+                    font.weight: Font.Medium
+                    color: "#94A3B8"
+                }
             }
             Button {
-                text: "✕"
+                text: "X"
                 flat: true
                 implicitWidth: 32; implicitHeight: 32
                 contentItem: Text {
@@ -174,6 +189,21 @@ Popup {
                             id: verboseLogSwitch
                             checked: sensorBridge.verboseLogging
                             onCheckedChanged: sensorBridge.verboseLogging = checked
+                        }
+                    }
+
+                    // Floating FPS Overlay switch
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Text {
+                            text: "Show Floating FPS Overlay"
+                            font.pixelSize: 13
+                            color: "#E2E8F0"
+                            Layout.fillWidth: true
+                        }
+                        Switch {
+                            checked: window.showFpsOverlay
+                            onCheckedChanged: window.showFpsOverlay = checked
                         }
                     }
                 }
