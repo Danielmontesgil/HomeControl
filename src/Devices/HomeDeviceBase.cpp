@@ -2,7 +2,7 @@
 #include "Commands/ICommand.h"
 
 HomeDeviceBase::HomeDeviceBase(const std::string& id, const std::string& topic, DeviceType type, QObject* parent)
-    : QObject(parent), id(id), topic(topic), m_type(type)
+    : QObject(parent), id(id), topic(topic), m_type(type), m_available(true)
 {
 }
 
@@ -66,6 +66,13 @@ std::unique_ptr<ICommand> HomeDeviceBase::parseCommand(const std::string& payloa
 
 void HomeDeviceBase::updateState(const std::string& state, const QJsonObject& attributes)
 {
+    bool nextAvailable = (state != "unavailable" && state != "unknown");
+    if (m_available != nextAvailable)
+    {
+        m_available = nextAvailable;
+        emit availableChanged();
+    }
+
     QString qState = QString::fromStdString(state);
     for (auto& [_, component] : m_components)
     {

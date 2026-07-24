@@ -12,7 +12,20 @@ ColorableComponent::ColorableComponent(HomeDeviceBase* parent)
 
 void ColorableComponent::updateState(const QJsonObject& attributes, const QString&)
 {
-    if (attributes.contains("rgb_color"))
+    if (attributes.contains("min_color_temp_kelvin"))
+    {
+        m_minColorTemp = attributes["min_color_temp_kelvin"].toInt();
+    }
+    if (attributes.contains("max_color_temp_kelvin"))
+    {
+        m_maxColorTemp = attributes["max_color_temp_kelvin"].toInt();
+    }
+
+    if (attributes.contains("color_mode") && attributes["color_mode"].toString() == "color_temp")
+    {
+        m_color = "#FFFFFF";
+    }
+    else if (attributes.contains("rgb_color"))
     {
         QJsonArray rgbArray = attributes["rgb_color"].toArray();
         if (rgbArray.size() >= 3)
@@ -36,7 +49,14 @@ std::unique_ptr<ICommand> ColorableComponent::parseCommand(const QString& payloa
 
     if (payload.startsWith("COLOR:"))
     {
-        QString hexStr = payload.mid(6);
+        QString hexStr = payload.mid(6).toUpper();
+        if (hexStr == "#FFFFFF")
+        {
+            QJsonObject serviceData;
+            serviceData["color_temp_kelvin"] = m_maxColorTemp; // Usar el límite máximo de blanco frío del propio dispositivo
+            return std::make_unique<GenericHaCommand>(controller, domain, "turn_on", topic, serviceData);
+        }
+
         QColor color(hexStr);
         if (color.isValid())
         {

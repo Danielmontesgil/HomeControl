@@ -135,7 +135,7 @@ if(ANDROID)
 endif()
 
 # --- Build Info Generation ---
-add_custom_target(GenerateBuildInfo ALL
+add_custom_target(GenerateBuildInfo
     COMMAND ${CMAKE_COMMAND} 
         -DBUILD_NUMBER_FILE="${CMAKE_CURRENT_SOURCE_DIR}/build_number.txt"
         -DBUILD_INFO_OUT="${CMAKE_CURRENT_SOURCE_DIR}/include/Core/BuildInfo.h"
@@ -143,6 +143,13 @@ add_custom_target(GenerateBuildInfo ALL
     BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/BuildInfo.h"
 )
 add_dependencies(HomeControl GenerateBuildInfo)
+
+add_custom_command(TARGET HomeControl POST_BUILD
+    COMMAND ${CMAKE_COMMAND}
+        -DBUILD_NUMBER_FILE="${CMAKE_CURRENT_SOURCE_DIR}/build_number.txt"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake"
+    COMMENT "Incrementing build number for next compilation..."
+)
 
 # --- Unit Testing (GoogleTest) -
 enable_testing()
@@ -188,7 +195,7 @@ target_link_libraries(HomeControlTests
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets Qt6::Network
 )
 
-add_dependencies(HomeControlTests GenerateBuildInfo)
+
 
 include(GoogleTest)
 gtest_discover_tests(HomeControlTests)

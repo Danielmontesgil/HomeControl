@@ -24,6 +24,7 @@ class HomeDeviceBase : public QObject
     Q_OBJECT
     Q_PROPERTY(QString id READ getQStringId CONSTANT)
     Q_PROPERTY(QString topic READ getQStringTopic CONSTANT)
+    Q_PROPERTY(bool available READ isAvailable NOTIFY availableChanged)
 
 public:
     explicit HomeDeviceBase(const std::string& id, const std::string& topic, DeviceType type, QObject* parent = nullptr);
@@ -33,6 +34,7 @@ public:
     void setId(const std::string& newId) { id = newId; notifyUpdate(); }
     QString getQStringId() const { return QString::fromStdString(id); }
     QString getQStringTopic() const { return QString::fromStdString(topic); }
+    bool isAvailable() const { return m_available; }
 
     DeviceType getType() const { return m_type; }
 
@@ -47,11 +49,13 @@ public:
 
 signals:
     void updated();
+    void availableChanged();
 
 protected:
     std::string id;
     std::string topic; // For HA, this stores the entity_id (e.g., "light.living_room_1")
     DeviceType m_type;
+    bool m_available = true;
     std::unordered_map<std::string, std::unique_ptr<IDeviceComponent>> m_components;
 
     void notifyUpdate()

@@ -185,6 +185,8 @@ ApplicationWindow {
                                 radius: 16
                                 border.color: model.isOn ? colorBorderActive : colorBorder
                                 border.width: 1
+                                opacity: model.available ? 1.0 : 0.4
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 scale: cardMouseArea.pressed ? 0.95 : 1.0
                                 Behavior on scale { NumberAnimation { duration: 80 } }
@@ -239,8 +241,8 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                     }
                                     Text {
-                                        text: model.isOn ? qsTr("Active") : qsTr("Off")
-                                        color: model.isOn ? colorSuccess : colorTextSecondary
+                                        text: !model.available ? qsTr("Unavailable") : (model.isOn ? qsTr("Active") : qsTr("Off"))
+                                        color: !model.available ? colorDanger : (model.isOn ? colorSuccess : colorTextSecondary)
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
                                     }
@@ -249,6 +251,7 @@ ApplicationWindow {
                                 MouseArea {
                                     id: cardMouseArea
                                     anchors.fill: parent
+                                    enabled: model.available
                                     onClicked: {
                                         sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
                                     }
@@ -323,6 +326,8 @@ ApplicationWindow {
                                 radius: 16
                                 border.color: model.isMoving ? colorWarning : colorBorder
                                 border.width: 1
+                                opacity: model.available ? 1.0 : 0.4
+                                Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                 scale: rollerMouseArea.pressed ? 0.95 : 1.0
                                 Behavior on scale { NumberAnimation { duration: 80 } }
@@ -358,7 +363,7 @@ ApplicationWindow {
                                         }
                                         Item { Layout.fillWidth: true }
                                         Text {
-                                            text: Math.round((model.deviceValue ?? 0) * 100) + "%"
+                                            text: model.available ? Math.round((model.deviceValue ?? 0) * 100) + "%" : ""
                                             color: colorTextPrimary
                                             font.pixelSize: 12; font.weight: Font.Black
                                         }
@@ -375,8 +380,8 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                     }
                                     Text {
-                                        text: model.isMoving ? qsTr("Moving") : qsTr("Idle")
-                                        color: model.isMoving ? colorWarning : colorTextSecondary
+                                        text: !model.available ? qsTr("Unavailable") : (model.isMoving ? qsTr("Moving") : qsTr("Idle"))
+                                        color: !model.available ? colorDanger : (model.isMoving ? colorWarning : colorTextSecondary)
                                         font.pixelSize: 11
                                         Layout.fillWidth: true
                                     }
@@ -385,6 +390,7 @@ ApplicationWindow {
                                 MouseArea {
                                     id: rollerMouseArea
                                     anchors.fill: parent
+                                    enabled: model.available
                                     onClicked: {
                                         activeControlDevice = model
                                         rollerControlPopup.open()
@@ -424,6 +430,8 @@ ApplicationWindow {
                             radius: 16
                             border.color: colorBorder
                             border.width: 1
+                            opacity: model.available ? 1.0 : 0.4
+                            Behavior on opacity { NumberAnimation { duration: 150 } }
 
                             ColumnLayout {
                                 anchors.fill: parent
@@ -460,9 +468,9 @@ ApplicationWindow {
                                         RowLayout {
                                             spacing: 5
                                             Text {
-                                                text: qsTr("Status: %1").arg(model.vacuumState ?? qsTr("unknown"))
+                                                text: !model.available ? qsTr("Status: Unavailable") : qsTr("Status: %1").arg(model.vacuumState ?? qsTr("unknown"))
                                                 font.pixelSize: 12
-                                                color: (model.vacuumState === "cleaning") ? colorSuccess : colorTextSecondary
+                                                color: !model.available ? colorDanger : ((model.vacuumState === "cleaning") ? colorSuccess : colorTextSecondary)
                                                 font.weight: Font.DemiBold
                                             }
                                             Text {
@@ -476,7 +484,7 @@ ApplicationWindow {
                                     ColumnLayout {
                                         spacing: 2
                                         Text {
-                                            text: (model.batteryLevel !== undefined ? model.batteryLevel : 100) + "%"
+                                            text: model.available ? ((model.batteryLevel !== undefined ? model.batteryLevel : 100) + "%") : ""
                                             font.pixelSize: 14; font.weight: Font.Black
                                             color: (model.batteryLevel !== undefined && model.batteryLevel > 20) ? colorSuccess : colorDanger
                                         }
@@ -492,7 +500,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         implicitHeight: 36
                                         text: qsTr("START")
-                                        enabled: model.vacuumState !== "cleaning"
+                                        enabled: model.available && model.vacuumState !== "cleaning"
                                         padding: 0
                                         background: Rectangle { color: parent.enabled ? "#1F3A2B" : "#151B2E"; border.color: parent.enabled ? colorSuccess : colorBorder; radius: 8 }
                                         contentItem: Text { text: parent.text; color: parent.enabled ? colorSuccess : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
@@ -503,7 +511,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         implicitHeight: 36
                                         text: qsTr("PAUSE")
-                                        enabled: model.vacuumState === "cleaning"
+                                        enabled: model.available && model.vacuumState === "cleaning"
                                         padding: 0
                                         background: Rectangle { color: parent.enabled ? "#3D2B1F" : "#151B2E"; border.color: parent.enabled ? colorWarning : colorBorder; radius: 8 }
                                         contentItem: Text { text: parent.text; color: parent.enabled ? colorWarning : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
@@ -514,7 +522,7 @@ ApplicationWindow {
                                         Layout.fillWidth: true
                                         implicitHeight: 36
                                         text: qsTr("DOCK")
-                                        enabled: model.vacuumState !== "docked" && model.vacuumState !== "returning"
+                                        enabled: model.available && model.vacuumState !== "docked" && model.vacuumState !== "returning"
                                         padding: 0
                                         background: Rectangle { color: parent.enabled ? "#1F2E3D" : "#151B2E"; border.color: parent.enabled ? colorAccent : colorBorder; radius: 8 }
                                         contentItem: Text { text: parent.text; color: parent.enabled ? colorAccent : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }

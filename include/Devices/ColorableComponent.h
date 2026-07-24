@@ -21,4 +21,6 @@ public:
 private:
     HomeDeviceBase* m_parent;
     QString m_color = "#FFFFFF";
+    int m_minColorTemp = 2000;
+    int m_maxColorTemp = 6500;
 };

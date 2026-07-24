@@ -24,7 +24,8 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {VacuumStateRole, "vacuumState"},
         {BatteryLevelRole, "batteryLevel"},
         {FanSpeedRole, "fanSpeed"},
-        {CapabilitiesRole, "capabilities"}
+        {CapabilitiesRole, "capabilities"},
+        {AvailableRole, "available"}
     };
 }
 
@@ -102,6 +103,8 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
             return QVariant();
         case CapabilitiesRole:
             return QVariant::fromValue(device->getComponentNames());
+        case AvailableRole:
+            return device->isAvailable();
     }
     
     return QVariant();

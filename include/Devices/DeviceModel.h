@@ -24,7 +24,8 @@ public:
 		VacuumStateRole,
 		BatteryLevelRole,
 		FanSpeedRole,
-		CapabilitiesRole
+		CapabilitiesRole,
+		AvailableRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);
