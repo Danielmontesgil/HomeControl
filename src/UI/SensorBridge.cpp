@@ -1,11 +1,11 @@
 #include "SensorBridge.h"
+#include "Core/Log.h"
 #include "DeviceModel.h"
 #include "IHaController.h"
 #include "HomeDeviceBase.h"
 #include "Commands/ICommand.h"
 #include "IDeviceFactory.h"
 #include "ISettingsManager.h"
-#include <iostream>
 #include <QColor>
 #include <QJsonArray>
 #include <QGuiApplication>
@@ -248,6 +248,20 @@ void SensorBridge::copyToClipboard(const QString& text)
     if (auto* clipboard = QGuiApplication::clipboard())
     {
         clipboard->setText(text);
+    }
+}
+
+unsigned int SensorBridge::getLogMask() const
+{
+    return Log::getLogMask();
+}
+
+void SensorBridge::setLogMask(unsigned int mask)
+{
+    if (Log::getLogMask() != mask)
+    {
+        Log::setLogMask(mask);
+        emit logMaskChanged();
     }
 }
 

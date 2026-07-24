@@ -66,6 +66,9 @@ TEST_F(JsonSettingsManagerTest, AsyncConcurrentWritesAndPersistence) {
         manager.saveVisibility("light.kitchen", true);
         manager.saveAlias("sensor.temp", "Temperatura Salon");
         manager.saveVisibility("sensor.temp", false);
+        
+        QThreadPool::globalInstance()->waitForDone();
+
         manager.saveAlias("light.kitchen", "Cocina Principal"); // Actualizar alias existente
         
         // Esperamos a que los hilos asíncronos finalicen el volcado a disco

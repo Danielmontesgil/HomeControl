@@ -206,6 +206,91 @@ Popup {
                             onCheckedChanged: window.showFpsOverlay = checked
                         }
                     }
+
+                    // Seccion de Filtrado de Logs por Bits
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 1
+                        color: "#1E293B"
+                    }
+
+                    Text {
+                        text: "ACTIVE LOG LEVELS (BITMASK)"
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        color: "#818CF8"
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+                        
+                        function toggleBit(bit) {
+                            var current = sensorBridge.logMask;
+                            if ((current & bit) !== 0) {
+                                sensorBridge.logMask = current & ~bit;
+                            } else {
+                                sensorBridge.logMask = current | bit;
+                            }
+                        }
+
+                        CheckBox {
+                            text: "INFO"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            checked: (sensorBridge.logMask & 1) !== 0
+                            onClicked: parent.toggleBit(1)
+                            contentItem: Text {
+                                text: parent.text
+                                font: parent.font
+                                color: parent.checked ? "#38BDF8" : "#94A3B8"
+                                leftPadding: 24
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        CheckBox {
+                            text: "DEBUG"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            checked: (sensorBridge.logMask & 2) !== 0
+                            onClicked: parent.toggleBit(2)
+                            contentItem: Text {
+                                text: parent.text
+                                font: parent.font
+                                color: parent.checked ? "#38BDF8" : "#94A3B8"
+                                leftPadding: 24
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        CheckBox {
+                            text: "WARN"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            checked: (sensorBridge.logMask & 4) !== 0
+                            onClicked: parent.toggleBit(4)
+                            contentItem: Text {
+                                text: parent.text
+                                font: parent.font
+                                color: parent.checked ? "#F59E0B" : "#94A3B8"
+                                leftPadding: 24
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                        CheckBox {
+                            text: "ERROR"
+                            font.pixelSize: 10
+                            font.weight: Font.Bold
+                            checked: (sensorBridge.logMask & 8) !== 0
+                            onClicked: parent.toggleBit(8)
+                            contentItem: Text {
+                                text: parent.text
+                                font: parent.font
+                                color: parent.checked ? "#EF4444" : "#94A3B8"
+                                leftPadding: 24
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+                    }
                 }
 
                 Rectangle {

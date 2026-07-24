@@ -13,9 +13,23 @@
 #include "JsonSettingsManager.h"
 #include "Bootstrap/AppSetup.h"
 
+#include "Core/Log.h"
+#include "Core/ConsoleLogger.h"
+#ifdef __ANDROID__
+#include "Core/AndroidLogger.h"
+#endif
+
 using namespace Qt::StringLiterals;
 
 int main(int argc, char *argv[]) {
+#ifdef __ANDROID__
+    Log::setLogger(std::make_shared<AndroidLogger>());
+#else
+    Log::setLogger(std::make_shared<ConsoleLogger>());
+#endif
+
+    Log::error("HaWebSocket", "HomeControl App Started - Logging initialized");
+
     QGuiApplication app(argc, argv);
     
     QQuickStyle::setStyle("Fusion");

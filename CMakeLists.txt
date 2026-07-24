@@ -60,6 +60,13 @@ set(PROJECT_SOURCES
     include/UI/HaImageProvider.h
     include/Devices/ISettingsManager.h
     include/Devices/JsonSettingsManager.h
+    src/Core/Log.cpp
+    src/Core/ConsoleLogger.cpp
+    src/Core/AndroidLogger.cpp
+    include/Core/ILogger.h
+    include/Core/Log.h
+    include/Core/ConsoleLogger.h
+    include/Core/AndroidLogger.h
 )
 
 qt_add_executable(HomeControl ${PROJECT_SOURCES})
@@ -85,6 +92,10 @@ target_link_libraries(HomeControl
     PRIVATE
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets Qt6::Network
 )
+
+if(ANDROID)
+    target_link_libraries(HomeControl PRIVATE log)
+endif()
 
 # --- Security Hardening Compiler Flags ---
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -158,6 +169,7 @@ add_executable(HomeControlTests
     tests/GenericHaCommandTest.cpp
     tests/HaWebSocketControllerTest.cpp
     tests/DeviceComponentTest.cpp
+    tests/LoggerTest.cpp
     ${LIB_SOURCES}
 )
 
@@ -172,6 +184,7 @@ target_include_directories(HomeControlTests PRIVATE
 target_link_libraries(HomeControlTests
     PRIVATE
     GTest::gtest_main
+    GTest::gmock
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets Qt6::Network
 )
 

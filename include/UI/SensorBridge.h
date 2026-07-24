@@ -23,6 +23,7 @@ class SensorBridge : public QObject
     Q_PROPERTY(QString buildVersion READ getBuildVersion CONSTANT)
     Q_PROPERTY(QString buildNumber READ getBuildNumber CONSTANT)
     Q_PROPERTY(QString buildTimestamp READ getBuildTimestamp CONSTANT)
+    Q_PROPERTY(unsigned int logMask READ getLogMask WRITE setLogMask NOTIFY logMaskChanged)
 
 public:
     QString getBuildVersion() const { return QStringLiteral(BUILD_VERSION); }
@@ -49,6 +50,8 @@ public:
     bool isDebugBuild() const;
     bool isVerboseLoggingEnabled() const;
     void setVerboseLogging(bool enable);
+    unsigned int getLogMask() const;
+    void setLogMask(unsigned int mask);
 
     Q_INVOKABLE void forceDisconnect();
     Q_INVOKABLE void setSimulationLatency(int ms);
@@ -73,6 +76,7 @@ signals:
     void countChanged();
     void networkChanged();
     void websocketMessageLogged(const QString& direction, const QString& message);
+    void logMaskChanged();
     
 private:
     IHaController& m_haController;

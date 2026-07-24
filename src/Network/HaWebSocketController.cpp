@@ -1,8 +1,8 @@
 #include "HaWebSocketController.h"
+#include "Core/Log.h"
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QUrl>
-#include <iostream>
 #include <cmath>
 #include <random>
 #include <algorithm>
@@ -18,7 +18,7 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
     
     // Catch network errors for console diagnostics
     connect(&m_webSocket, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
-        std::cerr << "[HaWebSocketController] Socket error: " << error << std::endl;
+        Log::error("HaWebSocket", "Socket error: " + std::to_string(error));
         m_lastDisconnectReason = QString("Socket Error: %1").arg(error);
         emit networkMetricsChanged();
     });
@@ -28,7 +28,7 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
     connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
         if (!m_isAuthenticated && m_shouldReconnect && !m_simulationOfflineMode)
         {
-            std::cout << "[HaWebSocketController] Reconnection timer triggered, opening WebSocket..." << std::endl;
+            Log::info("HaWebSocket", "Reconnection timer triggered, opening WebSocket...");
             m_webSocket.open(QUrl(QString::fromStdString(m_url)));
         }
     });
@@ -83,11 +83,11 @@ void HaWebSocketController::connectToHa(const std::string& url, const std::strin
     {
         m_lastDisconnectReason = "Offline Mode Simulation Active";
         emit networkMetricsChanged();
-        std::cout << "[HaWebSocketController] Connection blocked: Simulation Offline Mode is active." << std::endl;
+        Log::warn("HaWebSocket", "Connection blocked: Simulation Offline Mode is active.");
         return;
     }
 
-    std::cout << "[HaWebSocketController] Connecting to " << m_url << "..." << std::endl;
+    Log::info("HaWebSocket", "Connecting to " + m_url + "...");
     m_webSocket.open(QUrl(QString::fromStdString(m_url)));
 }
 
@@ -98,7 +98,7 @@ void HaWebSocketController::callService(const std::string& domain,
 {
     if (!m_isAuthenticated)
     {
-        std::cerr << "[HaWebSocketController] Warning: Attempting to call a service without authentication." << std::endl;
+        Log::warn("HaWebSocket", "Attempting to call a service without authentication.");
         return;
     }
 
@@ -120,7 +120,7 @@ void HaWebSocketController::callService(const std::string& domain,
 
 void HaWebSocketController::onConnected()
 {
-    std::cout << "[HaWebSocketController] TCP connection established with the WebSocket." << std::endl;
+    Log::info("HaWebSocket", "TCP connection established with the WebSocket.");
     if (m_reconnectTimer)
     {
         m_reconnectTimer->stop();
@@ -131,7 +131,7 @@ void HaWebSocketController::onConnected()
 
 void HaWebSocketController::onDisconnected()
 {
-    std::cout << "[HaWebSocketController] WebSocket connection lost." << std::endl;
+    Log::warn("HaWebSocket", "WebSocket connection lost.");
     m_isAuthenticated = false;
     m_latencyMs = -1;
     m_pendingPings.clear();
@@ -147,8 +147,8 @@ void HaWebSocketController::onDisconnected()
     if (m_shouldReconnect && m_reconnectTimer && !m_simulationOfflineMode)
     {
         int delayMs = calculateNextBackoffDelayMs();
-        std::cout << "[HaWebSocketController] Scheduling reconnect attempt #" << m_retryAttemptCount 
-                  << " in " << delayMs << " ms." << std::endl;
+        Log::info("HaWebSocket", "Scheduling reconnect attempt #" + std::to_string(m_retryAttemptCount) 
+                  + " in " + std::to_string(delayMs) + " ms.");
         m_nextReconnectDelayMs = delayMs;
         m_reconnectTimerStart.start();
         m_reconnectTimer->start(delayMs);
@@ -187,7 +187,7 @@ void HaWebSocketController::onTextMessageReceived(const QString& message)
     const bool isPong = message.contains("\"type\":\"pong\"") || message.contains("\"type\": \"pong\"");
     if (m_verboseLogging && !isPong)
     {
-        std::cout << "[WS RCVD] " << message.toStdString() << std::endl;
+        Log::debug("HaWebSocket", "[WS RCVD] " + message.toStdString());
     }
 
     if (!isPong)
@@ -209,14 +209,14 @@ void HaWebSocketController::onTextMessageReceived(const QString& message)
 
 void HaWebSocketController::authenticate()
 {
-    std::cout << "[HaWebSocketController] Sending access token to HA..." << std::endl;
+    Log::info("HaWebSocket", "Sending access token to HA...");
     
     QJsonObject authObj;
     authObj["type"] = "auth";
     if (m_simulationAuthFail)
     {
         authObj["access_token"] = "simulated_invalid_token_12345";
-        std::cout << "[HaWebSocketController] Simulating Auth Failure: sending invalid token." << std::endl;
+        Log::warn("HaWebSocket", "Simulating Auth Failure: sending invalid token.");
     }
     else
     {
@@ -229,7 +229,7 @@ void HaWebSocketController::authenticate()
 
 void HaWebSocketController::subscribeToEvents()
 {
-    std::cout << "[HaWebSocketController] Subscribing to state changes..." << std::endl;
+    Log::info("HaWebSocket", "Subscribing to state changes...");
 
     QJsonObject subObj;
     subObj["id"] = nextMessageId();
@@ -242,7 +242,7 @@ void HaWebSocketController::subscribeToEvents()
 
 void HaWebSocketController::fetchInitialStates()
 {
-    std::cout << "[HaWebSocketController] Requesting initial states dump..." << std::endl;
+    Log::info("HaWebSocket", "Requesting initial states dump...");
 
     QJsonObject statesObj;
     statesObj["id"] = nextMessageId();
@@ -258,15 +258,14 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     QJsonDocument doc = QJsonDocument::fromJson(message.toUtf8(), &parseError);
     if (parseError.error != QJsonParseError::NoError)
     {
-        std::cerr << "[HaWebSocketController] Error parsing received JSON: " 
-                  << parseError.errorString().toStdString() << std::endl;
+        Log::error("HaWebSocket", "Error parsing received JSON: " + parseError.errorString().toStdString());
         return;
     }
 
     QJsonObject rootObj = doc.object();
     if (!rootObj.contains("type") || !rootObj["type"].isString())
     {
-        std::cerr << "[HaWebSocketController] Error: Received JSON payload lacks a valid string 'type' key." << std::endl;
+        Log::error("HaWebSocket", "Received JSON payload lacks a valid string 'type' key.");
         return;
     }
     QString msgType = rootObj["type"].toString();
@@ -278,7 +277,7 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     }
     else if (msgType == "auth_ok")
     {
-        std::cout << "[HaWebSocketController] Authentication successfully completed." << std::endl;
+        Log::info("HaWebSocket", "Authentication successfully completed.");
         m_isAuthenticated = true;
         m_lastDisconnectReason = "None";
         resetBackoff();
@@ -291,8 +290,7 @@ void HaWebSocketController::parseHaMessage(const QString& message)
     }
     else if (msgType == "auth_invalid")
     {
-        std::cerr << "[HaWebSocketController] ERROR: Invalid access token for Home Assistant: " 
-                  << rootObj["message"].toString().toStdString() << std::endl;
+        Log::error("HaWebSocket", "Invalid access token for Home Assistant: " + rootObj["message"].toString().toStdString());
         m_shouldReconnect = false;
         if (m_reconnectTimer)
         {
@@ -321,9 +319,8 @@ void HaWebSocketController::parseHaMessage(const QString& message)
         if (!success)
         {
             QJsonObject errorObj = rootObj["error"].toObject();
-            std::cerr << "[HaWebSocketController] Error returned by HA. Code: " 
-                      << errorObj["code"].toString().toStdString() << " Msg: "
-                      << errorObj["message"].toString().toStdString() << std::endl;
+            Log::error("HaWebSocket", "Error returned by HA. Code: " + errorObj["code"].toString().toStdString() 
+                       + " Msg: " + errorObj["message"].toString().toStdString());
             return;
         }
 
@@ -344,8 +341,8 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                 QString type;
                 if (entityId.startsWith("light."))
                 {
-                    // Check if it is a smart light with dimming and color capabilities
                     type = "Light";
+                    Log::info("HaWebSocket", "Light entity found in states: " + entityId.toStdString());
                     if (attributes.contains("supported_color_modes"))
                     {
                         QJsonArray modes = attributes["supported_color_modes"].toArray();
@@ -353,10 +350,10 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                         for (const auto& modeVal : modes)
                         {
                             QString mode = modeVal.toString();
+                            Log::info("HaWebSocket", "  - Mode: " + mode.toStdString());
                             if (mode == "color_temp" || mode == "hs" || mode == "rgb" || mode == "rgbw" || mode == "xy")
                             {
                                 hasColor = true;
-                                break;
                             }
                         }
                         if (hasColor)
@@ -364,6 +361,11 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                             type = "DimmableColorLight";
                         }
                     }
+                    else
+                    {
+                        Log::warn("HaWebSocket", "  - No supported_color_modes found in attributes!");
+                    }
+                    Log::info("HaWebSocket", "  - Assigned Type: " + type.toStdString());
                 }
                 else if (entityId.startsWith("cover."))
                 {
@@ -439,7 +441,7 @@ std::string HaWebSocketController::getLastDisconnectReason() const
 
 void HaWebSocketController::forceDisconnect()
 {
-    std::cout << "[HaWebSocketController] Force Disconnect triggered by developer." << std::endl;
+    Log::info("HaWebSocket", "Force Disconnect triggered by developer.");
     m_lastDisconnectReason = "Forced Disconnect (DevTools)";
     emit networkMetricsChanged();
     m_webSocket.close();
@@ -448,21 +450,21 @@ void HaWebSocketController::forceDisconnect()
 void HaWebSocketController::setSimulationLatency(int ms)
 {
     m_simulationLatency = ms;
-    std::cout << "[HaWebSocketController] Simulation latency set to " << ms << " ms." << std::endl;
+    Log::info("HaWebSocket", "Simulation latency set to " + std::to_string(ms) + " ms.");
     emit networkMetricsChanged();
 }
 
 void HaWebSocketController::setSimulationAuthFail(bool enable)
 {
     m_simulationAuthFail = enable;
-    std::cout << "[HaWebSocketController] Simulation Auth Fail set to " << (enable ? "true" : "false") << std::endl;
+    Log::info("HaWebSocket", std::string("Simulation Auth Fail set to ") + (enable ? "true" : "false"));
     emit networkMetricsChanged();
 }
 
 void HaWebSocketController::setSimulationOfflineMode(bool enable)
 {
     m_simulationOfflineMode = enable;
-    std::cout << "[HaWebSocketController] Simulation Offline Mode set to " << (enable ? "true" : "false") << std::endl;
+    Log::info("HaWebSocket", std::string("Simulation Offline Mode set to ") + (enable ? "true" : "false"));
     if (enable)
     {
         if (m_reconnectTimer)
@@ -480,7 +482,7 @@ void HaWebSocketController::sendTextMessageInternal(const QString& message)
     const bool isPing = message.contains("\"type\":\"ping\"") || message.contains("\"type\": \"ping\"");
     if (m_verboseLogging && !isPing)
     {
-        std::cout << "[WS SENT] " << message.toStdString() << std::endl;
+        Log::debug("HaWebSocket", "[WS SENT] " + message.toStdString());
     }
 
     if (!isPing)
