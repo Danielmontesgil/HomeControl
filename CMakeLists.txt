@@ -115,7 +115,23 @@ if(ANDROID)
     set_property(TARGET HomeControl PROPERTY QT_ANDROID_TARGET_SDK_VERSION "36")
     set_property(TARGET HomeControl PROPERTY QT_ANDROID_MIN_SDK_VERSION "28")
     set_property(TARGET HomeControl PROPERTY QT_ANDROID_PACKAGE_NAME "com.danielmontes.homecontrol")
+
+    add_custom_command(TARGET apk POST_BUILD
+        COMMAND adb install -r "${CMAKE_BINARY_DIR}/android-build/HomeControl.apk"
+        COMMAND adb shell am start -n com.danielmontes.homecontrol/org.qtproject.qt.android.bindings.QtActivity
+        COMMENT "Desplegando APK en el dispositivo movil..."
+    )
 endif()
+
+# --- Build Info Generation ---
+add_custom_target(GenerateBuildInfo ALL
+    COMMAND ${CMAKE_COMMAND} 
+        -DBUILD_NUMBER_FILE="${CMAKE_CURRENT_SOURCE_DIR}/build_number.txt"
+        -DBUILD_INFO_OUT="${CMAKE_CURRENT_SOURCE_DIR}/include/Core/BuildInfo.h"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateBuildInfo.cmake"
+    BYPRODUCTS "${CMAKE_CURRENT_SOURCE_DIR}/include/Core/BuildInfo.h"
+)
+add_dependencies(HomeControl GenerateBuildInfo)
 
 # --- Unit Testing (GoogleTest) -
 enable_testing()
@@ -158,6 +174,8 @@ target_link_libraries(HomeControlTests
     GTest::gtest_main
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets Qt6::Network
 )
+
+add_dependencies(HomeControlTests GenerateBuildInfo)
 
 include(GoogleTest)
 gtest_discover_tests(HomeControlTests)

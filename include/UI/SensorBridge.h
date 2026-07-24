@@ -1,6 +1,7 @@
 #pragma once
 #include <QObject>
 #include <QJsonObject>
+#include "Core/BuildInfo.h"
 
 class DeviceModel;
 class IDeviceFactory;
@@ -19,8 +20,14 @@ class SensorBridge : public QObject
     Q_PROPERTY(QString haLastDisconnectReason READ getHaLastDisconnectReason NOTIFY networkChanged)
     Q_PROPERTY(bool isDebugBuild READ isDebugBuild CONSTANT)
     Q_PROPERTY(bool verboseLogging READ isVerboseLoggingEnabled WRITE setVerboseLogging NOTIFY networkChanged)
-    
+    Q_PROPERTY(QString buildVersion READ getBuildVersion CONSTANT)
+    Q_PROPERTY(QString buildNumber READ getBuildNumber CONSTANT)
+    Q_PROPERTY(QString buildTimestamp READ getBuildTimestamp CONSTANT)
+
 public:
+    QString getBuildVersion() const { return QStringLiteral(BUILD_VERSION); }
+    QString getBuildNumber() const { return QStringLiteral(BUILD_NUMBER); }
+    QString getBuildTimestamp() const { return QStringLiteral(BUILD_TIMESTAMP); }
     explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent = nullptr);
     virtual ~SensorBridge() = default;
     

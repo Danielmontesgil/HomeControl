@@ -10,9 +10,9 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: mouseArea.pressed ? "#EAECEF" : "#FFFFFF"
+        color: mouseArea.pressed ? "#1E2640" : "#151B2E"
         radius: 18
-        border.color: "#E2E8F0"
+        border.color: "#232B45"
         border.width: 1
 
         Behavior on color { ColorAnimation { duration: 100 } }
@@ -31,11 +31,11 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 color: {
                     if (sensorBridge.haConnected) {
-                        return (sensorBridge.haLatency > 250) ? "#F39C12" : "#2ECC71"
+                        return (sensorBridge.haLatency > 250) ? "#F59E0B" : "#10B981"
                     } else if (sensorBridge.haReconnectAttempts > 0) {
-                        return "#F1C40F"
+                        return "#F59E0B"
                     } else {
-                        return "#E74C3C"
+                        return "#EF4444"
                     }
                 }
 
@@ -63,7 +63,7 @@ Item {
                 }
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
-                color: "#4A5568"
+                color: "#E2E8F0"
                 anchors.verticalCenter: parent.verticalCenter
             }
         }
