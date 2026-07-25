@@ -25,7 +25,11 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {BatteryLevelRole, "batteryLevel"},
         {FanSpeedRole, "fanSpeed"},
         {CapabilitiesRole, "capabilities"},
-        {AvailableRole, "available"}
+        {AvailableRole, "available"},
+        {SupportsColorTempRole, "supportsColorTemp"},
+        {ColorTempRole, "colorTemp"},
+        {MinColorTempRole, "minColorTemp"},
+        {MaxColorTempRole, "maxColorTemp"}
     };
 }
 
@@ -105,6 +109,30 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
             return QVariant::fromValue(device->getComponentNames());
         case AvailableRole:
             return device->isAvailable();
+        case SupportsColorTempRole:
+            if (auto* colorable = device->getComponent("colorable"))
+            {
+                return static_cast<ColorableComponent*>(colorable)->supportsColorTemp();
+            }
+            return false;
+        case ColorTempRole:
+            if (auto* colorable = device->getComponent("colorable"))
+            {
+                return static_cast<ColorableComponent*>(colorable)->getColorTemp();
+            }
+            return QVariant();
+        case MinColorTempRole:
+            if (auto* colorable = device->getComponent("colorable"))
+            {
+                return static_cast<ColorableComponent*>(colorable)->getMinColorTemp();
+            }
+            return 2000;
+        case MaxColorTempRole:
+            if (auto* colorable = device->getComponent("colorable"))
+            {
+                return static_cast<ColorableComponent*>(colorable)->getMaxColorTemp();
+            }
+            return 6500;
     }
     
     return QVariant();

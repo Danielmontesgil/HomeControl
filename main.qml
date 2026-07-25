@@ -605,17 +605,18 @@ ApplicationWindow {
     Popup {
         id: lightControlPopup
         width: parent.width
-        height: 330
+        height: 360
         y: parent.height - height
         modal: true
         focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 0
 
         enter: Transition {
-            NumberAnimation { property: "y"; from: window.height; to: window.height - 330; duration: 250; easing.type: Easing.OutCubic }
+            NumberAnimation { property: "y"; from: window.height; to: window.height - 360; duration: 250; easing.type: Easing.OutCubic }
         }
         exit: Transition {
-            NumberAnimation { property: "y"; from: window.height - 330; to: window.height; duration: 200; easing.type: Easing.InCubic }
+            NumberAnimation { property: "y"; from: window.height - 360; to: window.height; duration: 200; easing.type: Easing.InCubic }
         }
 
         background: Rectangle {
@@ -631,8 +632,11 @@ ApplicationWindow {
 
         ColumnLayout {
             anchors.fill: parent
-            anchors.margins: 20
-            spacing: 16
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            anchors.topMargin: 20
+            anchors.bottomMargin: 32
+            spacing: 14
 
             Rectangle {
                 width: 36; height: 5; radius: 2.5; color: "#374151"
@@ -678,11 +682,11 @@ ApplicationWindow {
                 }
             }
 
-            // Slider de Brillo iOS-Style
+            // 1. Slider de Brillo iOS-Style
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: activeControlDevice && activeControlDevice.deviceValue !== undefined
-                spacing: 6
+                spacing: 4
                 Label { text: qsTr("BRIGHTNESS"); font.pixelSize: 10; color: colorTextSecondary; font.weight: Font.Bold }
                 Slider {
                     id: brightnessSlider
@@ -708,11 +712,54 @@ ApplicationWindow {
                 }
             }
 
-            // Preset de Colores
+            // 2. Slider de Temperatura Kelvin (Blanco Regulable)
+            ColumnLayout {
+                Layout.fillWidth: true
+                visible: activeControlDevice && activeControlDevice.supportsColorTemp
+                spacing: 4
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label { text: qsTr("COLOR TEMPERATURE"); font.pixelSize: 10; color: colorTextSecondary; font.weight: Font.Bold }
+                    Item { Layout.fillWidth: true }
+                    Label {
+                        text: (activeControlDevice && activeControlDevice.colorTemp !== undefined ? activeControlDevice.colorTemp : 4000) + " K"
+                        font.pixelSize: 11; font.weight: Font.Bold; color: colorTextPrimary
+                    }
+                }
+                Slider {
+                    id: kelvinSlider
+                    Layout.fillWidth: true
+                    from: activeControlDevice ? activeControlDevice.minColorTemp : 2000
+                    to: activeControlDevice ? activeControlDevice.maxColorTemp : 6500
+                    value: activeControlDevice ? activeControlDevice.colorTemp : 4000
+                    stepSize: 50
+                    onPressedChanged: {
+                        if (!pressed && activeControlDevice) {
+                            sensorBridge.publishCommand(activeControlDevice.topic, "KELVIN:" + Math.round(value))
+                        }
+                    }
+                    background: Rectangle {
+                        implicitHeight: 24; radius: 12
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "#FF9E2A" } // Cálido
+                            GradientStop { position: 0.5; color: "#FFFFEF" } // Neutro
+                            GradientStop { position: 1.0; color: "#A8CEFF" } // Frío
+                        }
+                    }
+                    handle: Rectangle {
+                        x: kelvinSlider.leftPadding + kelvinSlider.visualPosition * (kelvinSlider.availableWidth - width)
+                        y: kelvinSlider.topPadding + kelvinSlider.availableHeight / 2 - height / 2
+                        implicitWidth: 32; implicitHeight: 32; radius: 16; color: "#FFFFFF"; border.color: "#E2E8F0"; border.width: 2
+                    }
+                }
+            }
+
+            // 3. Presets de Color
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: activeControlDevice && activeControlDevice.supportsColor
-                spacing: 6
+                spacing: 4
                 Label { text: qsTr("COLOR PRESETS"); font.pixelSize: 10; color: colorTextSecondary; font.weight: Font.Bold }
                 RowLayout {
                     spacing: 12

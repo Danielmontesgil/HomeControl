@@ -20,6 +20,23 @@ void ColorableComponent::updateState(const QJsonObject& attributes, const QStrin
     {
         m_maxColorTemp = attributes["max_color_temp_kelvin"].toInt();
     }
+    if (attributes.contains("color_temp_kelvin"))
+    {
+        m_colorTemp = attributes["color_temp_kelvin"].toInt();
+    }
+    if (attributes.contains("supported_color_modes"))
+    {
+        QJsonArray modes = attributes["supported_color_modes"].toArray();
+        m_supportsColorTemp = false;
+        for (const auto& mode : modes)
+        {
+            if (mode.toString() == "color_temp")
+            {
+                m_supportsColorTemp = true;
+                break;
+            }
+        }
+    }
 
     if (attributes.contains("color_mode") && attributes["color_mode"].toString() == "color_temp")
     {
@@ -73,6 +90,17 @@ std::unique_ptr<ICommand> ColorableComponent::parseCommand(const QString& payloa
             std::cerr << "[ColorableComponent] Invalid color format: " << hexStr.toStdString() << std::endl;
         }
     }
+    else if (payload.startsWith("KELVIN:"))
+    {
+        bool ok;
+        int kelvin = payload.mid(7).toInt(&ok);
+        if (ok)
+        {
+            QJsonObject serviceData;
+            serviceData["color_temp_kelvin"] = kelvin;
+            return std::make_unique<GenericHaCommand>(controller, domain, "turn_on", topic, serviceData);
+        }
+    }
     return nullptr;
 }
 
@@ -82,6 +110,22 @@ QVariant ColorableComponent::getProperty(const std::string& key) const
     {
         return m_color;
     }
+    else if (key == "supportsColorTemp")
+    {
+        return m_supportsColorTemp;
+    }
+    else if (key == "colorTemp")
+    {
+        return m_colorTemp;
+    }
+    else if (key == "minColorTemp")
+    {
+        return m_minColorTemp;
+    }
+    else if (key == "maxColorTemp")
+    {
+        return m_maxColorTemp;
+    }
     return QVariant();
 }
 
@@ -90,5 +134,15 @@ void ColorableComponent::prepareForCommand(const QString& payload)
     if (payload.startsWith("COLOR:"))
     {
         m_color = payload.mid(6);
+    }
+    else if (payload.startsWith("KELVIN:"))
+    {
+        bool ok;
+        int kelvin = payload.mid(7).toInt(&ok);
+        if (ok)
+        {
+            m_colorTemp = kelvin;
+            m_color = "#FFFFFF";
+        }
     }
 }
