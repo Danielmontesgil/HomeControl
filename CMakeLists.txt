@@ -15,6 +15,18 @@ qt_policy(SET QTP0001 NEW)
 qt_policy(SET QTP0002 NEW)
 qt_standard_project_setup()
 
+if (ANDROID)
+    include(FetchContent)
+    FetchContent_Declare(
+        android_openssl
+        URL https://github.com/KDAB/android_openssl/archive/refs/heads/master.zip
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    )
+    FetchContent_MakeAvailable(android_openssl)
+    include(${android_openssl_SOURCE_DIR}/android_openssl.cmake)
+endif()
+
+
 include_directories(
     include
     include/Core
@@ -92,6 +104,10 @@ target_link_libraries(HomeControl
     PRIVATE
     Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::WebSockets Qt6::Network
 )
+
+if (ANDROID)
+    add_android_openssl_libraries(HomeControl)
+endif()
 
 if(ANDROID)
     target_link_libraries(HomeControl PRIVATE log)

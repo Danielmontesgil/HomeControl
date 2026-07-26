@@ -18,10 +18,18 @@ HaWebSocketController::HaWebSocketController(QObject* parent)
     
     // Catch network errors for console diagnostics
     connect(&m_webSocket, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error) {
-        Log::error("HaWebSocket", "Socket error: " + std::to_string(error));
-        m_lastDisconnectReason = QString("Socket Error: %1").arg(error);
+        Log::error("HaWebSocket", "Socket error: " + std::to_string(error) + " - " + m_webSocket.errorString().toStdString());
+        m_lastDisconnectReason = QString("Socket Error: %1 (%2)").arg(error).arg(m_webSocket.errorString());
         emit networkMetricsChanged();
     });
+
+    // Catch SSL errors for secure connection diagnostics
+    connect(&m_webSocket, &QWebSocket::sslErrors, this, [this](const QList<QSslError>& errors) {
+        for (const auto& error : errors) {
+            Log::error("HaWebSocket", "SSL Error: " + error.errorString().toStdString());
+        }
+    });
+
 
     // Initialize reconnect timer
     m_reconnectTimer = new QTimer(this);
