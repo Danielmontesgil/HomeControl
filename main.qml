@@ -204,6 +204,47 @@ ApplicationWindow {
                                     Behavior on opacity { NumberAnimation { duration: 150 } }
                                 }
 
+                                // Botón de refresco manual cuando el dispositivo está offline
+                                Rectangle {
+                                    id: refreshBtn
+                                    width: 26; height: 26; radius: 13
+                                    color: refreshMouseArea.containsPress ? "#3D4A6E" : (refreshMouseArea.containsMouse ? "#2C354E" : "#1A2035")
+                                    border.color: "#3D4A6E"
+                                    border.width: 1
+                                    anchors.top: parent.top
+                                    anchors.right: parent.right
+                                    anchors.margins: 8
+                                    z: 10
+                                    visible: !model.available
+
+                                    Behavior on color { ColorAnimation { duration: 100 } }
+
+                                    Text {
+                                        id: refreshText
+                                        anchors.centerIn: parent
+                                        text: "🔄"
+                                        font.pixelSize: 11
+                                        
+                                        RotationAnimation on rotation {
+                                            id: spinAnimation
+                                            from: 0
+                                            to: 360
+                                            duration: 600
+                                            running: false
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: refreshMouseArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: {
+                                            spinAnimation.start()
+                                            sensorBridge.forceDeviceUpdate(model.deviceId)
+                                        }
+                                    }
+                                }
+
                                 ColumnLayout {
                                     anchors.fill: parent
                                     anchors.margins: 12

@@ -200,7 +200,7 @@ target_include_directories(HomeControlTests PRIVATE
     include
     include/Core
     include/Devices
-    include/Mqtt
+    include/Network
     include/UI
 )
 

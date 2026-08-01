@@ -39,6 +39,7 @@ public:
     Q_INVOKABLE void setAllDevicesState(int type, const QString& payload);
     Q_INVOKABLE void stopDevice(const QString& topic);
     Q_INVOKABLE void renameDevice(const QString& topic, const QString& newName);
+    Q_INVOKABLE void forceDeviceUpdate(const QString& entityId);
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
 

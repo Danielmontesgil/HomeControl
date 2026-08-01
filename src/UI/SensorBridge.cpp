@@ -265,3 +265,8 @@ void SensorBridge::setLogMask(unsigned int mask)
     }
 }
 
+void SensorBridge::forceDeviceUpdate(const QString& entityId)
+{
+    m_haController.callService("homeassistant", "update_entity", entityId.toStdString());
+}
+
