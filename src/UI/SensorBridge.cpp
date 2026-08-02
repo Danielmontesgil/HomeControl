@@ -11,8 +11,8 @@
 #include <QGuiApplication>
 #include <QClipboard>
 
-SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent) 
-    : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel), m_settingsManager(settingsManager)
+SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, ILicenseManager& licenseManager, QObject* parent) 
+    : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel), m_settingsManager(settingsManager), m_licenseManager(licenseManager), m_internetAccessModel(this)
 {
 }
 
@@ -91,6 +91,49 @@ void SensorBridge::stopDevice(const QString& topic)
 
 void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state, const QJsonObject& attributes)
 {
+    if (entityId.contains(QStringLiteral("lavavajillas")) || entityId.contains(QStringLiteral("dishwasher")))
+    {
+        QString targetTopic = QStringLiteral("dishwasher.bosch_lavavajillas");
+        QString targetName = QStringLiteral("Bosch Lavavajillas");
+        QString targetType = QStringLiteral("Dishwasher");
+
+        auto* device = m_deviceModel.findByTopic(targetTopic);
+        if (!device)
+        {
+            addDevice(targetType, targetName, targetTopic);
+            device = m_deviceModel.findByTopic(targetTopic);
+        }
+
+        if (device)
+        {
+            QJsonObject modifiedAttributes = attributes;
+            modifiedAttributes[QStringLiteral("entity_id")] = entityId;
+            device->updateState(state.toStdString(), modifiedAttributes);
+        }
+        return;
+    }
+
+    if (entityId.startsWith("switch.") || type == "Switch")
+    {
+        if (entityId.contains("_internet_access_") || entityId.contains("internet") || entityId.contains("acceso_a_internet"))
+        {
+            if (isParentalPremium())
+            {
+                m_internetAccessModel.handleSwitchUpdate(entityId, state, friendlyName);
+            }
+        }
+        return;
+    }
+
+    if (entityId.startsWith("device_tracker.") || type == "DeviceTracker")
+    {
+        if (isParentalPremium())
+        {
+            m_internetAccessModel.handleTrackerUpdate(entityId, state, friendlyName);
+        }
+        return;
+    }
+
     if (auto* device = m_deviceModel.findByTopic(entityId))
     {
         device->updateState(state.toStdString(), attributes);
@@ -117,6 +160,38 @@ void SensorBridge::renameDevice(const QString& topic, const QString& newName)
 
 void SensorBridge::onDeviceStateChanged(const QString& entityId, const QString& state, const QJsonObject& attributes)
 {
+    if (entityId.contains(QStringLiteral("lavavajillas")) || entityId.contains(QStringLiteral("dishwasher")))
+    {
+        QString targetTopic = QStringLiteral("dishwasher.bosch_lavavajillas");
+        if (auto* device = m_deviceModel.findByTopic(targetTopic))
+        {
+            QJsonObject modifiedAttributes = attributes;
+            modifiedAttributes[QStringLiteral("entity_id")] = entityId;
+            device->updateState(state.toStdString(), modifiedAttributes);
+        }
+        return;
+    }
+
+    if (entityId.startsWith("switch.") && (entityId.contains("_internet_access_") || entityId.contains("internet") || entityId.contains("acceso_a_internet")))
+    {
+        if (isParentalPremium())
+        {
+            QString friendlyName = attributes.contains("friendly_name") ? attributes["friendly_name"].toString() : entityId;
+            m_internetAccessModel.handleSwitchUpdate(entityId, state, friendlyName);
+        }
+        return;
+    }
+
+    if (entityId.startsWith("device_tracker."))
+    {
+        if (isParentalPremium())
+        {
+            QString friendlyName = attributes.contains("friendly_name") ? attributes["friendly_name"].toString() : entityId;
+            m_internetAccessModel.handleTrackerUpdate(entityId, state, friendlyName);
+        }
+        return;
+    }
+
     if (auto* device = m_deviceModel.findByTopic(entityId))
     {
         device->updateState(state.toStdString(), attributes);
@@ -268,5 +343,45 @@ void SensorBridge::setLogMask(unsigned int mask)
 void SensorBridge::forceDeviceUpdate(const QString& entityId)
 {
     m_haController.callService("homeassistant", "update_entity", entityId.toStdString());
+}
+
+void SensorBridge::toggleInternet(const QString& entityId, bool enabled)
+{
+    QString service = enabled ? QStringLiteral("turn_on") : QStringLiteral("turn_off");
+    m_haController.callService("switch", service.toStdString(), entityId.toStdString());
+}
+
+bool SensorBridge::isParentalPremium() const
+{
+    return m_licenseManager.isFeatureLicensed("parental");
+}
+
+bool SensorBridge::activateParentalControl(const QString& licenseKey)
+{
+    bool success = m_licenseManager.activateFeature("parental", licenseKey.toStdString());
+    if (success)
+    {
+        emit licenseChanged();
+        reconnect();
+    }
+    return success;
+}
+
+void SensorBridge::deactivateParentalControl()
+{
+    m_licenseManager.activateFeature("parental", "");
+    m_internetAccessModel.clear();
+    emit licenseChanged();
+    reconnect();
+}
+
+void SensorBridge::saveSetting(const QString& key, const QString& value)
+{
+    m_settingsManager.saveAlias(key.toStdString(), value.toStdString());
+}
+
+QString SensorBridge::getSetting(const QString& key, const QString& defaultValue) const
+{
+    return QString::fromStdString(m_settingsManager.getAlias(key.toStdString(), defaultValue.toStdString()));
 }
 

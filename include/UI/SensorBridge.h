@@ -2,6 +2,8 @@
 #include <QObject>
 #include <QJsonObject>
 #include "Core/BuildInfo.h"
+#include "Devices/InternetAccessModel.h"
+#include "Devices/ILicenseManager.h"
 
 class DeviceModel;
 class IDeviceFactory;
@@ -13,6 +15,8 @@ class SensorBridge : public QObject
     Q_OBJECT
 
     Q_PROPERTY(DeviceModel* devices READ getDevices CONSTANT)
+    Q_PROPERTY(InternetAccessModel* internetAccess READ getInternetAccess CONSTANT)
+    Q_PROPERTY(bool isParentalPremium READ isParentalPremium NOTIFY licenseChanged)
     Q_PROPERTY(bool haConnected READ isHaConnected NOTIFY networkChanged)
     Q_PROPERTY(int haLatency READ getHaLatency NOTIFY networkChanged)
     Q_PROPERTY(int haReconnectAttempts READ getHaReconnectAttempts NOTIFY networkChanged)
@@ -29,7 +33,7 @@ public:
     QString getBuildVersion() const { return QStringLiteral(BUILD_VERSION); }
     QString getBuildNumber() const { return QStringLiteral(BUILD_NUMBER); }
     QString getBuildTimestamp() const { return QStringLiteral(BUILD_TIMESTAMP); }
-    explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, QObject* parent = nullptr);
+    explicit SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, ILicenseManager& licenseManager, QObject* parent = nullptr);
     virtual ~SensorBridge() = default;
     
     Q_INVOKABLE void publishCommand(const QString& topic, const QString& payload);
@@ -40,8 +44,16 @@ public:
     Q_INVOKABLE void stopDevice(const QString& topic);
     Q_INVOKABLE void renameDevice(const QString& topic, const QString& newName);
     Q_INVOKABLE void forceDeviceUpdate(const QString& entityId);
+    Q_INVOKABLE void toggleInternet(const QString& entityId, bool enabled);
+    Q_INVOKABLE void saveSetting(const QString& key, const QString& value);
+    Q_INVOKABLE QString getSetting(const QString& key, const QString& defaultValue) const;
     
     DeviceModel* getDevices() const { return &m_deviceModel; }
+    InternetAccessModel* getInternetAccess() { return &m_internetAccessModel; }
+    
+    bool isParentalPremium() const;
+    Q_INVOKABLE bool activateParentalControl(const QString& licenseKey);
+    Q_INVOKABLE void deactivateParentalControl();
 
     bool isHaConnected() const;
     int getHaLatency() const;
@@ -78,13 +90,16 @@ signals:
     void networkChanged();
     void websocketMessageLogged(const QString& direction, const QString& message);
     void logMaskChanged();
+    void licenseChanged();
     
 private:
     IHaController& m_haController;
     IDeviceFactory& m_deviceFactory;
     DeviceModel& m_deviceModel;
     ISettingsManager& m_settingsManager;
+    ILicenseManager& m_licenseManager;
     QString m_haUrl;
     QString m_haToken;
+    InternetAccessModel m_internetAccessModel;
 };
 

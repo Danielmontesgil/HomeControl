@@ -16,7 +16,8 @@ enum class DeviceType
 {
     Light,
     Roller,
-    Vacuum
+    Vacuum,
+    Dishwasher
 };
 
 class HomeDeviceBase : public QObject

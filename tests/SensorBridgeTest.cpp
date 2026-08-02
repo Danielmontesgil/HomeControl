@@ -8,6 +8,7 @@
 #include "ISettingsManager.h"
 #include "SwitchableComponent.h"
 #include "Commands/GenericHaCommand.h"
+#include "Devices/ILicenseManager.h"
 
 class MockSettingsManager : public ISettingsManager {
 public:
@@ -70,13 +71,20 @@ public:
     void registerType(const std::string& type, std::function<std::unique_ptr<HomeDeviceBase>(const std::string&, const std::string&)> creator) override {}
 };
 
+class MockLicenseManager : public ILicenseManager {
+public:
+    bool isFeatureLicensed(const std::string& featureId) const override { return true; }
+    bool activateFeature(const std::string& featureId, const std::string& licenseKey) override { return true; }
+};
+
 class SensorBridgeTest : public ::testing::Test {
 protected:
     MockDeviceFactory mockFactory;
     DeviceModel deviceModel;
     MockHaController mockHa;
     MockSettingsManager mockSettings;
-    SensorBridge bridge{mockFactory, deviceModel, mockHa, mockSettings};
+    MockLicenseManager mockLicense;
+    SensorBridge bridge{mockFactory, deviceModel, mockHa, mockSettings, mockLicense};
 };
 
 TEST_F(SensorBridgeTest, PublishCommand_HandlesHierarchicalTopics) {

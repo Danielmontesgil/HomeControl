@@ -11,8 +11,8 @@
 #include "DeviceModel.h"
 #include "HaImageProvider.h"
 #include "JsonSettingsManager.h"
+#include "LocalLicenseManager.h"
 #include "Bootstrap/AppSetup.h"
-
 #include "Core/Log.h"
 #include "Core/ConsoleLogger.h"
 #ifdef __ANDROID__
@@ -43,8 +43,9 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<DeviceModel>("SensorsApp", 1, 0, "DeviceModel");
     
     JsonSettingsManager settings("device_settings.json");
+    LocalLicenseManager licenseManager(settings);
     
-    SensorBridge bridge(deviceFactory, deviceModel, haController, settings);
+    SensorBridge bridge(deviceFactory, deviceModel, haController, settings, licenseManager);
     
     QTranslator translator;
     Bootstrap::AppSetup::setupTranslations(app, settings, translator);

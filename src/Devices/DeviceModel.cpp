@@ -5,6 +5,7 @@
 #include "ColorableComponent.h"
 #include "StoppableComponent.h"
 #include "StatusComponent.h"
+#include "DishwasherComponent.h"
 
 DeviceModel::DeviceModel(QObject* parent) : QAbstractListModel (parent){}
 DeviceModel::~DeviceModel() = default;
@@ -29,7 +30,11 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {SupportsColorTempRole, "supportsColorTemp"},
         {ColorTempRole, "colorTemp"},
         {MinColorTempRole, "minColorTemp"},
-        {MaxColorTempRole, "maxColorTemp"}
+        {MaxColorTempRole, "maxColorTemp"},
+        {DishwasherDoorOpenRole, "dishwasherDoorOpen"},
+        {DishwasherRemainingTimeRole, "dishwasherRemainingTime"},
+        {DishwasherProgramRole, "dishwasherProgram"},
+        {DishwasherStateRole, "dishwasherState"}
     };
 }
 
@@ -133,6 +138,30 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
                 return static_cast<ColorableComponent*>(colorable)->getMaxColorTemp();
             }
             return 6500;
+        case DishwasherDoorOpenRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherDoorOpen");
+            }
+            return false;
+        case DishwasherStateRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherState");
+            }
+            return QVariant();
+        case DishwasherRemainingTimeRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherRemainingTime");
+            }
+            return 0;
+        case DishwasherProgramRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherProgram");
+            }
+            return QVariant();
     }
     
     return QVariant();

@@ -43,6 +43,11 @@ set(PROJECT_SOURCES
     src/Network/HaWebSocketController.cpp
     src/Devices/DeviceModel.cpp
     src/Devices/DeviceFactory.cpp
+    src/Devices/InternetAccessModel.cpp
+    include/Devices/InternetAccessModel.h
+    src/Devices/LocalLicenseManager.cpp
+    include/Devices/LocalLicenseManager.h
+    include/Devices/ILicenseManager.h
     src/Commands/GenericHaCommand.cpp
     src/Bootstrap/AppSetup.cpp
     include/Commands/ICommand.h
@@ -54,6 +59,8 @@ set(PROJECT_SOURCES
     src/Devices/ColorableComponent.cpp
     src/Devices/StoppableComponent.cpp
     src/Devices/StatusComponent.cpp
+    src/Devices/DishwasherComponent.cpp
+    include/Devices/DishwasherComponent.h
     src/Devices/JsonSettingsManager.cpp
     include/Core/ThreadSafeValue.h
     include/UI/SensorBridge.h
@@ -193,6 +200,8 @@ add_executable(HomeControlTests
     tests/HaWebSocketControllerTest.cpp
     tests/DeviceComponentTest.cpp
     tests/LoggerTest.cpp
+    tests/InternetAccessModelTest.cpp
+    tests/DishwasherComponentTest.cpp
     ${LIB_SOURCES}
 )
 
