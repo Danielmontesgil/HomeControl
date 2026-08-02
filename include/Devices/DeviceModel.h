@@ -29,7 +29,11 @@ public:
 		SupportsColorTempRole,
 		ColorTempRole,
 		MinColorTempRole,
-		MaxColorTempRole
+		MaxColorTempRole,
+		DishwasherDoorOpenRole,
+		DishwasherRemainingTimeRole,
+		DishwasherProgramRole,
+		DishwasherStateRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);

@@ -299,6 +299,47 @@ Popup {
                     color: "#1E293B"
                 }
 
+                // SECTION: PREMIUM LICENSE TESTING
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    Text {
+                        text: "PREMIUM FEATURES"
+                        font.pixelSize: 11
+                        font.weight: Font.Bold
+                        color: "#F43F5E"
+                    }
+
+                    Button {
+                        text: "Deactivate Parental Control Premium"
+                        Layout.fillWidth: true
+                        implicitHeight: 38
+                        enabled: sensorBridge.isParentalPremium
+                        contentItem: Text {
+                            text: parent.text
+                            font.weight: Font.Bold
+                            font.pixelSize: 12
+                            color: "white"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        background: Rectangle {
+                            color: parent.enabled ? (parent.pressed ? "#BE123C" : "#E11D48") : "#1F293D"
+                            radius: 6
+                        }
+                        onClicked: {
+                            sensorBridge.deactivateParentalControl()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 1
+                    color: "#1E293B"
+                }
+
                 // SECTION 2: RAW DEVICE MODEL INSPECTOR
                 ColumnLayout {
                     Layout.fillWidth: true

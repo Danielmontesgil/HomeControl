@@ -7,6 +7,7 @@
 #include "ColorableComponent.h"
 #include "StoppableComponent.h"
 #include "StatusComponent.h"
+#include "DishwasherComponent.h"
 #include <QGuiApplication>
 #include <QTranslator>
 #include <QLocale>
@@ -41,6 +42,12 @@ void registerDeviceTypes(IDeviceFactory& factory)
         auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Vacuum);
         dev->addComponent(std::make_unique<SwitchableComponent>(dev.get()));
         dev->addComponent(std::make_unique<StatusComponent>(dev.get()));
+        return dev;
+    });
+    factory.registerType("Dishwasher", [](const std::string& id, const std::string& topic) {
+        auto dev = std::make_unique<HomeDeviceBase>(id, topic, DeviceType::Dishwasher);
+        dev->addComponent(std::make_unique<SwitchableComponent>(dev.get()));
+        dev->addComponent(std::make_unique<DishwasherComponent>(dev.get()));
         return dev;
     });
 }

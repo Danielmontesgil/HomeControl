@@ -383,6 +383,18 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                 {
                     type = "Vacuum";
                 }
+                else if (entityId.startsWith("device_tracker."))
+                {
+                    type = "DeviceTracker";
+                }
+                else if (entityId.startsWith("switch."))
+                {
+                    type = "Switch";
+                }
+                else if (entityId.contains("lavavajillas") || entityId.contains("dishwasher"))
+                {
+                    type = "Dishwasher";
+                }
 
                 if (!type.isEmpty())
                 {

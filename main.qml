@@ -29,11 +29,86 @@ ApplicationWindow {
     property int _lightCount: sensorBridge.getCountByType(0)
     property int _rollerCount: sensorBridge.getCountByType(1)
     property int _vacuumCount: sensorBridge.getCountByType(2)
+    property int _dishwasherCount: sensorBridge.getCountByType(3)
     property var activeVacuumDevice: null
     property var activeControlDevice: null
     property string deviceToRename: ""
     property bool showFpsOverlay: false
     property int currentFps: 60
+    property bool isEditingLayout: false
+    property var moduleOrder: sensorBridge.getSetting("system.module_order", "parental,lighting,covers,vacuums,dishwashers").split(",")
+
+    property bool expandedParental: sensorBridge.internetAccess.activeCount <= 2
+    property bool expandedLighting: _lightCount <= 2
+    property bool expandedCovers: _rollerCount <= 2
+    property bool expandedVacuums: _vacuumCount <= 2
+    property bool expandedDishwashers: _dishwasherCount <= 2
+
+    function moveModule(name, direction) {
+        var idx = moduleOrder.indexOf(name);
+        if (idx === -1) return;
+        var targetIdx = idx + direction;
+        if (targetIdx < 0 || targetIdx >= moduleOrder.length) return;
+        var arr = moduleOrder.slice();
+        var temp = arr[idx];
+        arr[idx] = arr[targetIdx];
+        arr[targetIdx] = temp;
+        moduleOrder = arr;
+        sensorBridge.saveSetting("system.module_order", arr.join(","));
+    }
+
+    function getActiveLightsCount() {
+        var count = 0;
+        for (var i = 0; i < sensorBridge.devices.rowCount(); i++) {
+            var idx = sensorBridge.devices.index(i, 0);
+            var type = sensorBridge.devices.data(idx, DeviceModel.TypeRole); 
+            var isOn = sensorBridge.devices.data(idx, DeviceModel.IsOnRole);
+            if (type === 0 && isOn) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function getOpenCoversCount() {
+        var count = 0;
+        for (var i = 0; i < sensorBridge.devices.rowCount(); i++) {
+            var idx = sensorBridge.devices.index(i, 0);
+            var type = sensorBridge.devices.data(idx, DeviceModel.TypeRole); 
+            var val = sensorBridge.devices.data(idx, DeviceModel.ValueRole);
+            if (type === 1 && val > 0.0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function getCleaningVacuumsCount() {
+        var count = 0;
+        for (var i = 0; i < sensorBridge.devices.rowCount(); i++) {
+            var idx = sensorBridge.devices.index(i, 0);
+            var type = sensorBridge.devices.data(idx, DeviceModel.TypeRole); 
+            var state = sensorBridge.devices.data(idx, DeviceModel.VacuumStateRole);
+            if (type === 2 && state === "cleaning") {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    function getRunningDishwashersCount() {
+        var count = 0;
+        for (var i = 0; i < sensorBridge.devices.rowCount(); i++) {
+            var idx = sensorBridge.devices.index(i, 0);
+            var type = sensorBridge.devices.data(idx, DeviceModel.TypeRole); 
+            var isOn = sensorBridge.devices.data(idx, DeviceModel.IsOnRole);
+            var state = sensorBridge.devices.data(idx, DeviceModel.DishwasherStateRole);
+            if (type === 3 && isOn && (state === "Run" || state === "Running")) {
+                count++;
+            }
+        }
+        return count;
+    }
 
     FrameAnimation {
         id: globalFpsCounter
@@ -59,6 +134,7 @@ ApplicationWindow {
             _lightCount = sensorBridge.getCountByType(0)
             _rollerCount = sensorBridge.getCountByType(1)
             _vacuumCount = sensorBridge.getCountByType(2)
+            _dishwasherCount = sensorBridge.getCountByType(3)
         }
     }
 
@@ -121,6 +197,25 @@ ApplicationWindow {
                     id: netIndicator
                     onClicked: diagnosticsSheet.open()
                 }
+
+                Rectangle {
+                    width: 32; height: 32; radius: 16
+                    color: isEditingLayout ? "#1E3A8A" : colorCardBg
+                    border.color: isEditingLayout ? colorAccent : colorBorder
+                    border.width: 1
+                    
+                    Text {
+                        anchors.centerIn: parent
+                        text: isEditingLayout ? "✓" : "⚙️"
+                        font.pixelSize: 14
+                        color: isEditingLayout ? "white" : colorTextPrimary
+                    }
+                    
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: isEditingLayout = !isEditingLayout
+                    }
+                }
             }
         }
 
@@ -134,7 +229,211 @@ ApplicationWindow {
                 width: parent.width
                 spacing: 24
 
-                // --- SECCIÓN: ILUMINACIÓN ---
+                // --- CARGADOR DINÁMICO DE MÓDULOS DEL DASHBOARD ---
+                Repeater {
+                    model: moduleOrder
+                    delegate: Loader {
+                        width: parent.width
+                        visible: {
+                            if (modelData === "parental") return !sensorBridge.isParentalPremium || sensorBridge.internetAccess.activeCount > 0;
+                            if (modelData === "lighting") return _lightCount > 0;
+                            if (modelData === "covers") return _rollerCount > 0;
+                            if (modelData === "vacuums") return _vacuumCount > 0;
+                            if (modelData === "dishwashers") return _dishwasherCount > 0;
+                            return false;
+                        }
+                        sourceComponent: {
+                            if (!visible) return null;
+                            if (modelData === "parental") return parentalModuleComponent;
+                            if (modelData === "lighting") return lightingModuleComponent;
+                            if (modelData === "covers") return coversModuleComponent;
+                            if (modelData === "vacuums") return vacuumsModuleComponent;
+                            if (modelData === "dishwashers") return dishwashersModuleComponent;
+                            return null;
+                        }
+                    }
+                }
+            }
+
+            // --- COMPONENTES DE MÓDULOS MODULARIZADOS ---
+            
+            // 1. Componente: CONTROL PARENTAL
+            Component {
+                id: parentalModuleComponent
+                Column {
+                    width: parent.width
+                    spacing: 12
+                    visible: !sensorBridge.isParentalPremium || sensorBridge.internetAccess.activeCount > 0
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: 8
+                        
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: qsTr("PARENTAL CONTROL")
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                            Text {
+                                visible: !window.expandedParental && sensorBridge.isParentalPremium
+                                text: "• " + sensorBridge.internetAccess.activeCount + " online"
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                        }
+                        
+                        RowLayout {
+                            visible: isEditingLayout
+                            spacing: 4
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("parental", -1) }
+                            }
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("parental", 1) }
+                            }
+                        }
+
+                        Text {
+                            text: window.expandedParental ? "▲" : "▼"
+                            font.pixelSize: 10; color: colorAccent
+                            visible: !isEditingLayout && sensorBridge.isParentalPremium
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isEditingLayout && sensorBridge.isParentalPremium
+                            onClicked: window.expandedParental = !window.expandedParental
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: window.expandedParental ? (sensorBridge.isParentalPremium ? (sensorBridge.internetAccess.activeCount * 68 - 8) : 120) : 0
+                        clip: true
+                        color: "transparent"
+                        Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
+
+                        Item {
+                            anchors.fill: parent
+                            
+                            Column {
+                                width: parent.width
+                                spacing: 8
+                                visible: sensorBridge.isParentalPremium
+
+                                Repeater {
+                                    model: sensorBridge.internetAccess
+                                    delegate: Rectangle {
+                                        width: parent.width
+                                        height: 60
+                                        color: colorCardBg
+                                        radius: 16
+                                        border.color: colorBorder
+                                        border.width: 1
+
+                                        RowLayout {
+                                            anchors.fill: parent
+                                            anchors.margins: 12
+                                            spacing: 12
+
+                                            Rectangle {
+                                                width: 36; height: 36; radius: 18; color: "#1E293D"
+                                                Text {
+                                                    anchors.centerIn: parent
+                                                    text: {
+                                                        var t = model.type;
+                                                        if (t === "smartphone") return "📱";
+                                                        if (t === "television") return "📺";
+                                                        if (t === "console") return "🎮";
+                                                        return "🌐";
+                                                    }
+                                                    font.pixelSize: 16
+                                                }
+                                            }
+
+                                            ColumnLayout {
+                                                spacing: 1
+                                                Layout.fillWidth: true
+                                                Text {
+                                                    text: model.name; font.pixelSize: 14; font.weight: Font.Bold; color: colorTextPrimary
+                                                    elide: Text.ElideRight; Layout.fillWidth: true
+                                                }
+                                                Text {
+                                                    text: model.isActive ? qsTr("Internet Access: Allowed") : qsTr("Internet Access: Blocked")
+                                                    font.pixelSize: 11; font.weight: Font.Medium; color: model.isActive ? colorSuccess : colorDanger
+                                                    Layout.fillWidth: true
+                                                }
+                                            }
+
+                                            Switch {
+                                                id: internetSwitch
+                                                checked: model.isActive
+                                                scale: 0.85
+                                                indicator: Rectangle {
+                                                    implicitWidth: 44; implicitHeight: 24; radius: 12
+                                                    color: internetSwitch.checked ? colorSuccess : "#1F293D"
+                                                    Rectangle {
+                                                        x: internetSwitch.checked ? parent.width - width - 2 : 2
+                                                        y: 2; width: 20; height: 20; radius: 10; color: "white"
+                                                        Behavior on x { NumberAnimation { duration: 150 } }
+                                                    }
+                                                }
+                                                onClicked: sensorBridge.toggleInternet(model.entityId, checked)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                anchors.fill: parent
+                                visible: !sensorBridge.isParentalPremium
+                                color: colorCardBg
+                                radius: 16; border.color: colorBorder; border.width: 1
+
+                                ColumnLayout {
+                                    anchors.centerIn: parent
+                                    spacing: 8
+                                    Text {
+                                        text: "🔒 CONTROL PARENTAL PREMIUM"
+                                        font.weight: Font.Bold; font.pixelSize: 13; color: colorTextPrimary
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
+                                    Text {
+                                        text: qsTr("Bloquea internet en consolas, TVs y móviles al instante.")
+                                        font.pixelSize: 11; color: colorTextSecondary
+                                        Layout.alignment: Qt.AlignHCenter
+                                    }
+                                    Rectangle {
+                                        width: 120; height: 32; radius: 8
+                                        color: "#1E2640"; border.color: colorAccent; border.width: 1
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Text {
+                                            anchors.centerIn: parent; text: qsTr("Activar Módulo")
+                                            font.weight: Font.Bold; font.pixelSize: 11; color: colorAccent
+                                        }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            onClicked: tabBar.currentIndex = 2
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Componente: ILUMINACIÓN
+            Component {
+                id: lightingModuleComponent
                 Column {
                     width: parent.width
                     spacing: 12
@@ -142,171 +441,162 @@ ApplicationWindow {
                     
                     RowLayout {
                         width: parent.width
-                        Label {
-                            text: qsTr("LIGHTING")
-                            font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                        spacing: 8
+                        
+                        RowLayout {
                             Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: qsTr("LIGHTING")
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                            Text {
+                                visible: !window.expandedLighting
+                                text: "• " + getActiveLightsCount() + " active"
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
                         }
+
                         Switch {
                             id: masterLightSwitch
-                            visible: _lightCount > 1
+                            visible: _lightCount > 1 && window.expandedLighting && !isEditingLayout
                             scale: 0.85
                             checked: sensorBridge.getCountByType(0) > 0
                             
                             indicator: Rectangle {
-                                implicitWidth: 44
-                                implicitHeight: 24
-                                radius: 12
+                                implicitWidth: 44; implicitHeight: 24; radius: 12
                                 color: masterLightSwitch.checked ? colorSuccess : "#1F293D"
                                 Rectangle {
                                     x: masterLightSwitch.checked ? parent.width - width - 2 : 2
-                                    y: 2
-                                    width: 20; height: 20; radius: 10; color: "white"
+                                    y: 2; width: 20; height: 20; radius: 10; color: "white"
                                     Behavior on x { NumberAnimation { duration: 150 } }
                                 }
                             }
                             onClicked: sensorBridge.setAllDevicesState(0, checked ? "ON" : "OFF")
                         }
+
+                        RowLayout {
+                            visible: isEditingLayout
+                            spacing: 4
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", -1) }
+                            }
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", 1) }
+                            }
+                        }
+
+                        Text {
+                            text: window.expandedLighting ? "▲" : "▼"
+                            font.pixelSize: 10; color: colorAccent
+                            visible: !isEditingLayout
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isEditingLayout
+                            onClicked: window.expandedLighting = !window.expandedLighting
+                        }
                     }
 
-                    Grid {
-                        id: lightsGrid
+                    Rectangle {
                         width: parent.width
-                        columns: parent.width > 500 ? 3 : 2
-                        spacing: 12
+                        height: window.expandedLighting ? lightsFlow.implicitHeight : 0
+                        clip: true
+                        color: "transparent"
+                        Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
 
-                        Repeater {
-                            model: sensorBridge.devices
-                            delegate: Rectangle {
-                                visible: model.deviceType === 0
-                                width: visible ? (lightsGrid.width - (lightsGrid.spacing * (lightsGrid.columns - 1))) / lightsGrid.columns : 0
-                                height: visible ? 110 : 0
-                                color: model.isOn ? colorCardBgActive : colorCardBg
-                                radius: 16
-                                border.color: model.isOn ? colorBorderActive : colorBorder
-                                border.width: 1
-                                opacity: model.available ? 1.0 : 0.4
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                        Flow {
+                            id: lightsFlow
+                            width: parent.width
+                            spacing: 12
+                            readonly property int columns: parent.width > 500 ? 3 : 2
 
-                                scale: cardMouseArea.pressed ? 0.95 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 80 } }
-                                Behavior on color { ColorAnimation { duration: 150 } }
-
-                                // Efecto de resplandor para tarjetas encendidas
-                                Rectangle {
-                                    anchors.fill: parent
-                                    anchors.margins: -4
-                                    radius: 20
-                                    color: "transparent"
-                                    border.color: colorBorderActive
+                            Repeater {
+                                model: sensorBridge.devices
+                                delegate: Rectangle {
+                                    visible: model.deviceType === 0
+                                    width: visible ? (lightsFlow.width - (lightsFlow.spacing * (lightsFlow.columns - 1))) / lightsFlow.columns : 0
+                                    height: visible ? 110 : 0
+                                    color: model.isOn ? colorCardBgActive : colorCardBg
+                                    radius: 16
+                                    border.color: model.isOn ? colorBorderActive : colorBorder
                                     border.width: 1
-                                    opacity: model.isOn ? 0.25 : 0.0
+                                    opacity: model.available ? 1.0 : 0.4
                                     Behavior on opacity { NumberAnimation { duration: 150 } }
-                                }
 
-                                // Botón de refresco manual cuando el dispositivo está offline
-                                Rectangle {
-                                    id: refreshBtn
-                                    width: 26; height: 26; radius: 13
-                                    color: refreshMouseArea.containsPress ? "#3D4A6E" : (refreshMouseArea.containsMouse ? "#2C354E" : "#1A2035")
-                                    border.color: "#3D4A6E"
-                                    border.width: 1
-                                    anchors.top: parent.top
-                                    anchors.right: parent.right
-                                    anchors.margins: 8
-                                    z: 10
-                                    visible: !model.available
+                                    scale: cardMouseArea.pressed ? 0.95 : 1.0
+                                    Behavior on scale { NumberAnimation { duration: 80 } }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
 
-                                    Behavior on color { ColorAnimation { duration: 100 } }
+                                    Rectangle {
+                                        anchors.fill: parent; anchors.margins: -4; radius: 20; color: "transparent"
+                                        border.color: colorBorderActive; border.width: 1
+                                        opacity: model.isOn ? 0.25 : 0.0
+                                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                                    }
 
-                                    Text {
-                                        id: refreshText
-                                        anchors.centerIn: parent
-                                        text: "🔄"
-                                        font.pixelSize: 11
-                                        
-                                        RotationAnimation on rotation {
-                                            id: spinAnimation
-                                            from: 0
-                                            to: 360
-                                            duration: 600
-                                            running: false
+                                    Rectangle {
+                                        id: refreshBtn
+                                        width: 26; height: 26; radius: 13
+                                        color: refreshMouseArea.containsPress ? "#3D4A6E" : (refreshMouseArea.containsMouse ? "#2C354E" : "#1A2035")
+                                        border.color: "#3D4A6E"; border.width: 1
+                                        anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 8; z: 10
+                                        visible: !model.available
+                                        Text {
+                                            id: refreshText; anchors.centerIn: parent; text: "🔄"; font.pixelSize: 11
+                                            RotationAnimation on rotation { id: spinAnimation; from: 0; to: 360; duration: 600; running: false }
+                                        }
+                                        MouseArea {
+                                            id: refreshMouseArea; anchors.fill: parent; hoverEnabled: true
+                                            onClicked: { spinAnimation.start(); sensorBridge.forceDeviceUpdate(model.deviceId) }
+                                        }
+                                    }
+
+                                    ColumnLayout {
+                                        anchors.fill: parent; anchors.margins: 12; spacing: 4
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Rectangle {
+                                                width: 32; height: 32; radius: 16
+                                                color: model.isOn ? (model.supportsColor ? model.deviceColor : "#FFE082") : "#1F2538"
+                                                Text { anchors.centerIn: parent; text: "💡"; font.pixelSize: 15; opacity: model.isOn ? 1.0 : 0.4 }
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                            Text {
+                                                text: (model.isOn && model.deviceValue !== undefined) ? Math.round(model.deviceValue * 100) + "%" : ""
+                                                color: colorTextSecondary; font.pixelSize: 11; font.weight: Font.Bold
+                                            }
+                                        }
+                                        Item { Layout.fillHeight: true }
+                                        Text { text: model.deviceId; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        Text {
+                                            text: !model.available ? qsTr("Unavailable") : (model.isOn ? qsTr("Active") : qsTr("Off"))
+                                            color: !model.available ? colorDanger : (model.isOn ? colorSuccess : colorTextSecondary); font.pixelSize: 11; Layout.fillWidth: true
                                         }
                                     }
 
                                     MouseArea {
-                                        id: refreshMouseArea
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        onClicked: {
-                                            spinAnimation.start()
-                                            sensorBridge.forceDeviceUpdate(model.deviceId)
-                                        }
-                                    }
-                                }
-
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 4
-
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Rectangle {
-                                            width: 32; height: 32; radius: 16
-                                            color: model.isOn ? (model.supportsColor ? model.deviceColor : "#FFE082") : "#1F2538"
-                                            Text { 
-                                                anchors.centerIn: parent; 
-                                                text: "💡"; 
-                                                font.pixelSize: 15; 
-                                                opacity: model.isOn ? 1.0 : 0.4 
-                                            }
-                                        }
-                                        Item { Layout.fillWidth: true }
-                                        Text {
-                                            text: (model.isOn && model.deviceValue !== undefined) ? Math.round(model.deviceValue * 100) + "%" : ""
-                                            color: colorTextSecondary
-                                            font.pixelSize: 11
-                                            font.weight: Font.Bold
-                                        }
-                                    }
-
-                                    Item { Layout.fillHeight: true }
-
-                                    Text {
-                                        text: model.deviceId
-                                        color: colorTextPrimary
-                                        font.weight: Font.Bold
-                                        font.pixelSize: 14
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-                                    Text {
-                                        text: !model.available ? qsTr("Unavailable") : (model.isOn ? qsTr("Active") : qsTr("Off"))
-                                        color: !model.available ? colorDanger : (model.isOn ? colorSuccess : colorTextSecondary)
-                                        font.pixelSize: 11
-                                        Layout.fillWidth: true
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: cardMouseArea
-                                    anchors.fill: parent
-                                    enabled: model.available
-                                    onClicked: {
-                                        sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
-                                    }
-                                    onPressAndHold: {
-                                        activeControlDevice = model
-                                        lightControlPopup.open()
+                                        id: cardMouseArea; anchors.fill: parent; enabled: model.available
+                                        onClicked: sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
+                                        onPressAndHold: { activeControlDevice = model; lightControlPopup.open() }
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                // --- SECCIÓN: PERSIANAS ---
+            // 3. Componente: PERSIANAS
+            Component {
+                id: coversModuleComponent
                 Column {
                     width: parent.width
                     spacing: 12
@@ -314,139 +604,145 @@ ApplicationWindow {
 
                     RowLayout {
                         width: parent.width
-                        Label {
-                            text: qsTr("BLINDS & COMFORT")
-                            font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                        spacing: 8
+                        
+                        RowLayout {
                             Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: qsTr("BLINDS & COMFORT")
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                            Text {
+                                visible: !window.expandedCovers
+                                text: "• " + getOpenCoversCount() + " open"
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
                         }
+
                         Slider {
                             id: masterRollerSlider
-                            visible: _rollerCount > 1
+                            visible: _rollerCount > 1 && window.expandedCovers && !isEditingLayout
                             Layout.preferredWidth: 100
                             onMoved: sensorBridge.setAllDevicesState(1, Math.round(value * 100).toString())
                             handle: Rectangle {
                                 x: masterRollerSlider.leftPadding + masterRollerSlider.visualPosition * (masterRollerSlider.availableWidth - width)
                                 y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
-                                implicitWidth: 18; implicitHeight: 18
-                                radius: 9
-                                color: masterRollerSlider.pressed ? colorAccent : "#FFFFFF"
-                                border.color: colorAccent
-                                border.width: 1
+                                implicitWidth: 18; implicitHeight: 18; radius: 9
+                                color: masterRollerSlider.pressed ? colorAccent : "#FFFFFF"; border.color: colorAccent; border.width: 1
                             }
                             background: Rectangle {
-                                x: masterRollerSlider.leftPadding
-                                y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
-                                implicitWidth: 100; implicitHeight: 6
-                                width: masterRollerSlider.availableWidth
-                                height: implicitHeight
-                                radius: 3
-                                color: "#1F293D"
-                                Rectangle {
-                                    width: masterRollerSlider.visualPosition * parent.width
-                                    height: parent.height
-                                    color: colorAccent
-                                    radius: 3
-                                }
+                                x: masterRollerSlider.leftPadding; y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
+                                implicitWidth: 100; implicitHeight: 6; width: masterRollerSlider.availableWidth; height: implicitHeight; radius: 3; color: "#1F293D"
+                                Rectangle { width: masterRollerSlider.visualPosition * parent.width; height: parent.height; color: colorAccent; radius: 3 }
                             }
+                        }
+
+                        RowLayout {
+                            visible: isEditingLayout
+                            spacing: 4
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("covers", -1) }
+                            }
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("covers", 1) }
+                            }
+                        }
+
+                        Text {
+                            text: window.expandedCovers ? "▲" : "▼"
+                            font.pixelSize: 10; color: colorAccent
+                            visible: !isEditingLayout
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isEditingLayout
+                            onClicked: window.expandedCovers = !window.expandedCovers
                         }
                     }
 
-                    Grid {
-                        id: rollersGrid
+                    Rectangle {
                         width: parent.width
-                        columns: parent.width > 500 ? 3 : 2
-                        spacing: 12
+                        height: window.expandedCovers ? rollersFlow.implicitHeight : 0
+                        clip: true
+                        color: "transparent"
+                        Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
 
-                        Repeater {
-                            model: sensorBridge.devices
-                            delegate: Rectangle {
-                                visible: model.deviceType === 1
-                                width: visible ? (rollersGrid.width - (rollersGrid.spacing * (rollersGrid.columns - 1))) / rollersGrid.columns : 0
-                                height: visible ? 110 : 0
-                                color: model.isMoving ? colorCardBgActive : colorCardBg
-                                radius: 16
-                                border.color: model.isMoving ? colorWarning : colorBorder
-                                border.width: 1
-                                opacity: model.available ? 1.0 : 0.4
-                                Behavior on opacity { NumberAnimation { duration: 150 } }
+                        Flow {
+                            id: rollersFlow
+                            width: parent.width
+                            spacing: 12
+                            readonly property int columns: parent.width > 500 ? 3 : 2
 
-                                scale: rollerMouseArea.pressed ? 0.95 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 80 } }
-                                Behavior on color { ColorAnimation { duration: 150 } }
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    anchors.margins: -4
-                                    radius: 20
-                                    color: "transparent"
-                                    border.color: colorWarning
+                            Repeater {
+                                model: sensorBridge.devices
+                                delegate: Rectangle {
+                                    visible: model.deviceType === 1
+                                    width: visible ? (rollersFlow.width - (rollersFlow.spacing * (rollersFlow.columns - 1))) / rollersFlow.columns : 0
+                                    height: visible ? 110 : 0
+                                    color: model.isMoving ? colorCardBgActive : colorCardBg
+                                    radius: 16
+                                    border.color: model.isMoving ? colorWarning : colorBorder
                                     border.width: 1
-                                    opacity: model.isMoving ? 0.25 : 0.0
+                                    opacity: model.available ? 1.0 : 0.4
                                     Behavior on opacity { NumberAnimation { duration: 150 } }
-                                }
 
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 12
-                                    spacing: 4
+                                    scale: rollerMouseArea.pressed ? 0.95 : 1.0
+                                    Behavior on scale { NumberAnimation { duration: 80 } }
+                                    Behavior on color { ColorAnimation { duration: 150 } }
 
-                                    RowLayout {
-                                        Layout.fillWidth: true
-                                        Rectangle {
-                                            width: 32; height: 32; radius: 16
-                                            color: model.isMoving ? "#FFF3E0" : "#1F2538"
-                                            Text { 
-                                                anchors.centerIn: parent; 
-                                                text: "🪟"; 
-                                                font.pixelSize: 15; 
-                                                opacity: model.isMoving ? 1.0 : 0.5 
+                                    Rectangle {
+                                        anchors.fill: parent; anchors.margins: -4; radius: 20; color: "transparent"
+                                        border.color: colorWarning; border.width: 1
+                                        opacity: model.isMoving ? 0.25 : 0.0
+                                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                                    }
+
+                                    ColumnLayout {
+                                        anchors.fill: parent; anchors.margins: 12; spacing: 4
+                                        RowLayout {
+                                            Layout.fillWidth: true
+                                            Rectangle {
+                                                width: 32; height: 32; radius: 16
+                                                color: model.isMoving ? "#FFF3E0" : "#1F2538"
+                                                Text { anchors.centerIn: parent; text: "🪟"; font.pixelSize: 15; opacity: model.isMoving ? 1.0 : 0.5 }
+                                            }
+                                            Item { Layout.fillWidth: true }
+                                            Text {
+                                                text: model.available ? Math.round((model.deviceValue ?? 0) * 100) + "%" : ""
+                                                color: colorTextPrimary; font.pixelSize: 12; font.weight: Font.Black
                                             }
                                         }
-                                        Item { Layout.fillWidth: true }
+                                        Item { Layout.fillHeight: true }
+                                        Text { text: model.deviceId; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 14; elide: Text.ElideRight; Layout.fillWidth: true }
                                         Text {
-                                            text: model.available ? Math.round((model.deviceValue ?? 0) * 100) + "%" : ""
-                                            color: colorTextPrimary
-                                            font.pixelSize: 12; font.weight: Font.Black
+                                            text: !model.available ? qsTr("Unavailable") : (model.isMoving ? qsTr("Moving") : qsTr("Idle"))
+                                            color: !model.available ? colorDanger : (model.isMoving ? colorWarning : colorTextSecondary); font.pixelSize: 11; Layout.fillWidth: true
                                         }
                                     }
 
-                                    Item { Layout.fillHeight: true }
-
-                                    Text {
-                                        text: model.deviceId
-                                        color: colorTextPrimary
-                                        font.weight: Font.Bold
-                                        font.pixelSize: 14
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-                                    Text {
-                                        text: !model.available ? qsTr("Unavailable") : (model.isMoving ? qsTr("Moving") : qsTr("Idle"))
-                                        color: !model.available ? colorDanger : (model.isMoving ? colorWarning : colorTextSecondary)
-                                        font.pixelSize: 11
-                                        Layout.fillWidth: true
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: rollerMouseArea
-                                    anchors.fill: parent
-                                    enabled: model.available
-                                    onClicked: {
-                                        activeControlDevice = model
-                                        rollerControlPopup.open()
-                                    }
-                                    onPressAndHold: {
-                                        activeControlDevice = model
-                                        rollerControlPopup.open()
+                                    MouseArea {
+                                        id: rollerMouseArea; anchors.fill: parent; enabled: model.available
+                                        onClicked: { activeControlDevice = model; rollerControlPopup.open() }
+                                        onPressAndHold: { activeControlDevice = model; rollerControlPopup.open() }
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
 
-                // --- SECCIÓN: ASPIRADORES ---
+            // 4. Componente: ASPIRADORES
+            Component {
+                id: vacuumsModuleComponent
                 Column {
                     width: parent.width
                     spacing: 12
@@ -454,131 +750,142 @@ ApplicationWindow {
 
                     RowLayout {
                         width: parent.width
-                        Label {
-                            text: qsTr("VACUUMS & CLEANING")
-                            font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                        spacing: 8
+                        
+                        RowLayout {
                             Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: qsTr("VACUUMS & CLEANING")
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                            Text {
+                                visible: !window.expandedVacuums
+                                text: "• " + getCleaningVacuumsCount() + " cleaning"
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                        }
+
+                        RowLayout {
+                            visible: isEditingLayout
+                            spacing: 4
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", -1) }
+                            }
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", 1) }
+                            }
+                        }
+
+                        Text {
+                            text: window.expandedVacuums ? "▲" : "▼"
+                            font.pixelSize: 10; color: colorAccent
+                            visible: !isEditingLayout
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isEditingLayout
+                            onClicked: window.expandedVacuums = !window.expandedVacuums
                         }
                     }
 
-                    Repeater {
-                        model: sensorBridge.devices
-                        delegate: Rectangle {
-                            visible: model.deviceType === 2
-                            width: visible ? parent.width : 0
-                            height: visible ? 130 : 0
-                            color: colorCardBg
-                            radius: 16
-                            border.color: colorBorder
-                            border.width: 1
-                            opacity: model.available ? 1.0 : 0.4
-                            Behavior on opacity { NumberAnimation { duration: 150 } }
+                    Rectangle {
+                        width: parent.width
+                        height: window.expandedVacuums ? vacuumsColumn.implicitHeight : 0
+                        clip: true
+                        color: "transparent"
+                        Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
 
-                            ColumnLayout {
-                                anchors.fill: parent
-                                anchors.margins: 14
-                                spacing: 10
+                        Column {
+                            id: vacuumsColumn
+                            width: parent.width
+                            spacing: 8
 
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 12
-
-                                    Rectangle {
-                                        width: 38; height: 38; radius: 19
-                                        color: (model.vacuumState === "cleaning") ? "#E8F5E9" : "#1F2538"
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: "🧹"
-                                            font.pixelSize: 18
-                                            RotationAnimation on rotation {
-                                                running: model.vacuumState === "cleaning"
-                                                loops: Animation.Infinite
-                                                from: 0; to: 360; duration: 3000
-                                            }
-                                        }
-                                    }
+                            Repeater {
+                                model: sensorBridge.devices
+                                delegate: Rectangle {
+                                    visible: model.deviceType === 2
+                                    width: visible ? parent.width : 0
+                                    height: visible ? 130 : 0
+                                    color: colorCardBg
+                                    radius: 16
+                                    border.color: colorBorder; border.width: 1
+                                    opacity: model.available ? 1.0 : 0.4
+                                    Behavior on opacity { NumberAnimation { duration: 150 } }
 
                                     ColumnLayout {
-                                        spacing: 2
-                                        Layout.fillWidth: true
-                                        Text { 
-                                            text: model.deviceId ?? ""
-                                            color: colorTextPrimary
-                                            font.weight: Font.Bold; font.pixelSize: 15; elide: Text.ElideRight 
+                                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                                        RowLayout {
+                                            Layout.fillWidth: true; spacing: 12
+                                            Rectangle {
+                                                width: 38; height: 38; radius: 19
+                                                color: (model.vacuumState === "cleaning") ? "#E8F5E9" : "#1F2538"
+                                                Text {
+                                                    anchors.centerIn: parent; text: "🧹"; font.pixelSize: 18
+                                                    RotationAnimation on rotation { running: model.vacuumState === "cleaning"; loops: Animation.Infinite; from: 0; to: 360; duration: 3000 }
+                                                }
+                                            }
+                                            ColumnLayout {
+                                                spacing: 2; Layout.fillWidth: true
+                                                Text { text: model.deviceId ?? ""; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 15; elide: Text.ElideRight }
+                                                RowLayout {
+                                                    spacing: 5
+                                                    Text {
+                                                        text: !model.available ? qsTr("Status: Unavailable") : qsTr("Status: %1").arg(model.vacuumState ?? qsTr("unknown"))
+                                                        font.pixelSize: 12; color: !model.available ? colorDanger : ((model.vacuumState === "cleaning") ? colorSuccess : colorTextSecondary); font.weight: Font.DemiBold
+                                                    }
+                                                    Text { text: "• " + (model.fanSpeed ?? qsTr("Standard")); font.pixelSize: 11; color: colorTextSecondary }
+                                                }
+                                            }
+                                            ColumnLayout {
+                                                spacing: 2
+                                                Text {
+                                                    text: model.available ? ((model.batteryLevel !== undefined ? model.batteryLevel : 100) + "%") : ""
+                                                    font.pixelSize: 14; font.weight: Font.Black
+                                                    color: (model.batteryLevel !== undefined && model.batteryLevel > 20) ? colorSuccess : colorDanger
+                                                }
+                                                Text { text: qsTr("Battery"); font.pixelSize: 9; color: colorTextSecondary; Layout.alignment: Qt.AlignRight }
+                                            }
                                         }
                                         RowLayout {
-                                            spacing: 5
-                                            Text {
-                                                text: !model.available ? qsTr("Status: Unavailable") : qsTr("Status: %1").arg(model.vacuumState ?? qsTr("unknown"))
-                                                font.pixelSize: 12
-                                                color: !model.available ? colorDanger : ((model.vacuumState === "cleaning") ? colorSuccess : colorTextSecondary)
-                                                font.weight: Font.DemiBold
+                                            Layout.fillWidth: true; spacing: 8
+                                            Button {
+                                                Layout.fillWidth: true; implicitHeight: 36; text: qsTr("START")
+                                                enabled: model.available && model.vacuumState !== "cleaning"
+                                                padding: 0
+                                                background: Rectangle { color: parent.enabled ? "#1F3A2B" : "#151B2E"; border.color: parent.enabled ? colorSuccess : colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; color: parent.enabled ? colorSuccess : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: sensorBridge.publishCommand(model.topic, "START")
                                             }
-                                            Text {
-                                                text: "• " + (model.fanSpeed ?? qsTr("Standard"))
-                                                font.pixelSize: 11
-                                                color: colorTextSecondary
+                                            Button {
+                                                Layout.fillWidth: true; implicitHeight: 36; text: qsTr("PAUSE")
+                                                enabled: model.available && model.vacuumState === "cleaning"
+                                                padding: 0
+                                                background: Rectangle { color: parent.enabled ? "#3D2B1F" : "#151B2E"; border.color: parent.enabled ? colorWarning : colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; color: parent.enabled ? colorWarning : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: sensorBridge.publishCommand(model.topic, "PAUSE")
                                             }
-                                        }
-                                    }
-
-                                    ColumnLayout {
-                                        spacing: 2
-                                        Text {
-                                            text: model.available ? ((model.batteryLevel !== undefined ? model.batteryLevel : 100) + "%") : ""
-                                            font.pixelSize: 14; font.weight: Font.Black
-                                            color: (model.batteryLevel !== undefined && model.batteryLevel > 20) ? colorSuccess : colorDanger
-                                        }
-                                        Text { text: qsTr("Battery"); font.pixelSize: 9; color: colorTextSecondary; Layout.alignment: Qt.AlignRight }
-                                    }
-                                }
-
-                                RowLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 8
-
-                                    Button {
-                                        Layout.fillWidth: true
-                                        implicitHeight: 36
-                                        text: qsTr("START")
-                                        enabled: model.available && model.vacuumState !== "cleaning"
-                                        padding: 0
-                                        background: Rectangle { color: parent.enabled ? "#1F3A2B" : "#151B2E"; border.color: parent.enabled ? colorSuccess : colorBorder; radius: 8 }
-                                        contentItem: Text { text: parent.text; color: parent.enabled ? colorSuccess : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                        onClicked: sensorBridge.publishCommand(model.topic, "START")
-                                    }
-
-                                    Button {
-                                        Layout.fillWidth: true
-                                        implicitHeight: 36
-                                        text: qsTr("PAUSE")
-                                        enabled: model.available && model.vacuumState === "cleaning"
-                                        padding: 0
-                                        background: Rectangle { color: parent.enabled ? "#3D2B1F" : "#151B2E"; border.color: parent.enabled ? colorWarning : colorBorder; radius: 8 }
-                                        contentItem: Text { text: parent.text; color: parent.enabled ? colorWarning : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                        onClicked: sensorBridge.publishCommand(model.topic, "PAUSE")
-                                    }
-
-                                    Button {
-                                        Layout.fillWidth: true
-                                        implicitHeight: 36
-                                        text: qsTr("DOCK")
-                                        enabled: model.available && model.vacuumState !== "docked" && model.vacuumState !== "returning"
-                                        padding: 0
-                                        background: Rectangle { color: parent.enabled ? "#1F2E3D" : "#151B2E"; border.color: parent.enabled ? colorAccent : colorBorder; radius: 8 }
-                                        contentItem: Text { text: parent.text; color: parent.enabled ? colorAccent : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                        onClicked: sensorBridge.publishCommand(model.topic, "RETURN")
-                                    }
-
-                                    Button {
-                                        implicitWidth: 36; implicitHeight: 36
-                                        text: "🗺️"
-                                        padding: 0
-                                        background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
-                                        contentItem: Text { text: parent.text; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                        onClicked: {
-                                            activeVacuumDevice = model
-                                            vacuumDetailsPopup.open()
+                                            Button {
+                                                Layout.fillWidth: true; implicitHeight: 36; text: qsTr("DOCK")
+                                                enabled: model.available && model.vacuumState !== "docked" && model.vacuumState !== "returning"
+                                                padding: 0
+                                                background: Rectangle { color: parent.enabled ? "#1F2E3D" : "#151B2E"; border.color: parent.enabled ? colorAccent : colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; color: parent.enabled ? colorAccent : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: sensorBridge.publishCommand(model.topic, "RETURN")
+                                            }
+                                            Button {
+                                                implicitWidth: 36; implicitHeight: 36; text: "🗺️"; padding: 0
+                                                background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; font.pixelSize: 14; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: { activeVacuumDevice = model; vacuumDetailsPopup.open() }
+                                            }
                                         }
                                     }
                                 }
@@ -586,53 +893,141 @@ ApplicationWindow {
                         }
                     }
                 }
+            }
 
-                // --- SECCIÓN: ADMINISTRACIÓN ---
+            // 5. Componente: LAVAVAJILLAS
+            Component {
+                id: dishwashersModuleComponent
                 Column {
                     width: parent.width
                     spacing: 12
-                    topPadding: 10
+                    visible: _dishwasherCount > 0
 
-                    Label {
-                        text: qsTr("ADMINISTRATION")
-                        font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
-                    }
-
-                    Flow {
+                    RowLayout {
                         width: parent.width
                         spacing: 8
                         
-                        Button {
-                            text: "+ " + qsTr("Bath Light")
-                            padding: 0
-                            implicitHeight: 32; implicitWidth: 100
-                            background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
-                            contentItem: Text { text: parent.text; color: colorTextPrimary; font.pixelSize: 12; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                            onClicked: sensorBridge.addDevice("Light", "BathroomLight", "home/light/bathroom/1")
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            Label {
+                                text: qsTr("DISHWASHERS")
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
+                            Text {
+                                visible: !window.expandedDishwashers
+                                text: "• " + getRunningDishwashersCount() + " active"
+                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            }
                         }
-                        Button {
-                            text: "+ " + qsTr("Bed. Blind")
-                            padding: 0
-                            implicitHeight: 32; implicitWidth: 100
-                            background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
-                            contentItem: Text { text: parent.text; color: colorTextPrimary; font.pixelSize: 12; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                            onClicked: sensorBridge.addDevice("Roller", "BedroomRoller", "home/roller/bedroom/1")
+
+                        RowLayout {
+                            visible: isEditingLayout
+                            spacing: 4
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", -1) }
+                            }
+                            Rectangle {
+                                width: 24; height: 24; radius: 4
+                                color: "#1E293D"; border.color: colorBorder
+                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", 1) }
+                            }
                         }
-                        Button {
-                            text: "+ " + qsTr("Living Blind")
-                            padding: 0
-                            implicitHeight: 32; implicitWidth: 100
-                            background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
-                            contentItem: Text { text: parent.text; color: colorTextPrimary; font.pixelSize: 12; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                            onClicked: sensorBridge.addDevice("Roller", "StudioRoller", "home/roller/studio/1")
+
+                        Text {
+                            text: window.expandedDishwashers ? "▲" : "▼"
+                            font.pixelSize: 10; color: colorAccent
+                            visible: !isEditingLayout
                         }
-                        Button {
-                            text: "+ " + qsTr("Vacuum")
-                            padding: 0
-                            implicitHeight: 32; implicitWidth: 100
-                            background: Rectangle { color: "#1F293D"; border.color: colorBorder; radius: 8 }
-                            contentItem: Text { text: parent.text; color: colorTextPrimary; font.pixelSize: 12; font.weight: Font.Medium; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                            onClicked: sensorBridge.addDevice("Vacuum", "Xiaomi Vacuum 20X+", "vacuum.xiaomi_vacuum")
+
+                        MouseArea {
+                            anchors.fill: parent
+                            enabled: !isEditingLayout
+                            onClicked: window.expandedDishwashers = !window.expandedDishwashers
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: window.expandedDishwashers ? dishwashersColumn.implicitHeight : 0
+                        clip: true
+                        color: "transparent"
+                        Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.InOutQuad } }
+
+                        Column {
+                            id: dishwashersColumn
+                            width: parent.width
+                            spacing: 8
+
+                            Repeater {
+                                model: sensorBridge.devices
+                                delegate: Rectangle {
+                                    visible: model.deviceType === 3
+                                    width: visible ? parent.width : 0
+                                    height: visible ? 130 : 0
+                                    color: colorCardBg
+                                    radius: 16; border.color: colorBorder; border.width: 1
+                                    opacity: model.available ? 1.0 : 0.4
+                                    Behavior on opacity { NumberAnimation { duration: 150 } }
+
+                                    ColumnLayout {
+                                        anchors.fill: parent; anchors.margins: 14; spacing: 10
+                                        RowLayout {
+                                            Layout.fillWidth: true; spacing: 12
+                                            Rectangle {
+                                                width: 38; height: 38; radius: 19
+                                                color: model.dishwasherDoorOpen ? "#3D1F1F" : ((model.dishwasherState === "Run" || model.dishwasherState === "Running") ? "#1F3A2B" : "#1F2538")
+                                                Text { anchors.centerIn: parent; text: model.dishwasherDoorOpen ? "🚪" : "🍽️"; font.pixelSize: 18 }
+                                            }
+                                            ColumnLayout {
+                                                spacing: 2; Layout.fillWidth: true
+                                                Text { text: model.deviceId ?? ""; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 15; elide: Text.ElideRight }
+                                                RowLayout {
+                                                    spacing: 5
+                                                    Text {
+                                                        text: !model.available ? qsTr("Status: Unavailable") : 
+                                                              (model.dishwasherDoorOpen ? qsTr("Status: Door Open") : 
+                                                              (model.isOn ? qsTr("Status: %1").arg(model.dishwasherState ?? qsTr("Ready")) : qsTr("Status: Power Off")))
+                                                        font.pixelSize: 12
+                                                        color: !model.available || model.dishwasherDoorOpen ? colorDanger : 
+                                                               ((model.dishwasherState === "Run" || model.dishwasherState === "Running") ? colorSuccess : colorTextSecondary)
+                                                        font.weight: Font.DemiBold
+                                                    }
+                                                }
+                                            }
+                                            ColumnLayout {
+                                                spacing: 2
+                                                Text {
+                                                    text: (model.available && model.isOn && model.dishwasherRemainingTime > 0) ? (model.dishwasherRemainingTime + " min") : ""
+                                                    font.pixelSize: 14; font.weight: Font.Black; color: colorSuccess; Layout.alignment: Qt.AlignRight
+                                                }
+                                                Text { text: model.available ? (model.dishwasherProgram ?? "") : ""; font.pixelSize: 11; color: colorTextSecondary; Layout.alignment: Qt.AlignRight }
+                                            }
+                                        }
+                                        RowLayout {
+                                            Layout.fillWidth: true; spacing: 8
+                                            Button {
+                                                Layout.fillWidth: true; implicitHeight: 36; text: model.isOn ? qsTr("TURN OFF") : qsTr("TURN ON"); enabled: model.available; padding: 0
+                                                background: Rectangle { color: parent.enabled ? (model.isOn ? "#3D2B1F" : "#1F2E3D") : "#151B2E"; border.color: parent.enabled ? (model.isOn ? colorWarning : colorAccent) : colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; color: parent.enabled ? (model.isOn ? colorWarning : colorAccent) : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
+                                            }
+                                            Button {
+                                                Layout.fillWidth: true; implicitHeight: 36; text: qsTr("START")
+                                                enabled: model.available && model.isOn && (model.dishwasherState !== "Run" && model.dishwasherState !== "Running")
+                                                padding: 0
+                                                background: Rectangle { color: parent.enabled ? "#1F3A2B" : "#151B2E"; border.color: parent.enabled ? colorSuccess : colorBorder; radius: 8 }
+                                                contentItem: Text { text: parent.text; color: parent.enabled ? colorSuccess : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                                                onClicked: sensorBridge.publishCommand(model.topic, "START")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1289,8 +1684,72 @@ ApplicationWindow {
                 }
             }
         }
+        // Sección de Licencia Premium
+        ColumnLayout {
+            Layout.fillWidth: true; spacing: 8
+            Label { text: qsTr("Feature Activation:"); font.weight: Font.Bold; color: colorTextPrimary }
+            
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                
+                TextField {
+                    id: licenseKeyInput
+                    Layout.fillWidth: true
+                    placeholderText: sensorBridge.isParentalPremium ? qsTr("Module activated") : qsTr("Enter license key...")
+                    placeholderTextColor: colorTextSecondary
+                    text: sensorBridge.isParentalPremium ? "DEMO-PARENTAL-KEY-2026" : ""
+                    enabled: !sensorBridge.isParentalPremium
+                    color: colorTextPrimary
+                    
+                    background: Rectangle {
+                        implicitHeight: 40
+                        color: colorCardBg
+                        border.color: colorBorder
+                        radius: 6
+                    }
+                }
+                
+                Button {
+                    text: sensorBridge.isParentalPremium ? qsTr("Activated") : qsTr("Activate")
+                    enabled: !sensorBridge.isParentalPremium && licenseKeyInput.text.trim() !== ""
+                    implicitHeight: 40
+                    Layout.preferredWidth: 100
+                    
+                    contentItem: Text {
+                        text: parent.text
+                        font.weight: Font.Bold
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.pressed ? "#1D4ED8" : colorAccent) : "#1E293B"
+                        radius: 6
+                    }
+                    
+                    onClicked: {
+                        var success = sensorBridge.activateParentalControl(licenseKeyInput.text.trim())
+                        if (success) {
+                            licenseStatusText.text = qsTr("Parental Control Premium successfully activated!")
+                            licenseStatusText.color = colorSuccess
+                        } else {
+                            licenseStatusText.text = qsTr("Invalid license key.")
+                            licenseStatusText.color = colorDanger
+                        }
+                    }
+                }
+            }
+            Text {
+                id: licenseStatusText
+                text: sensorBridge.isParentalPremium ? qsTr("Parental Control Premium is active.") : ""
+                font.pixelSize: 11
+                color: sensorBridge.isParentalPremium ? colorSuccess : colorDanger
+                Layout.alignment: Qt.AlignLeft
+            }
+        }
 
-        Text { id: languageStatusText; text: ""; font.pixelSize: 12; color: colorDanger; font.weight: Font.Bold; Layout.alignment: Qt.AlignHCenter }
         Item { Layout.fillHeight: true }
     }
 
@@ -1347,6 +1806,7 @@ ApplicationWindow {
             devToolsLoader.item.open()
         }
     }
+
 
     Loader {
         id: devToolsLoader
