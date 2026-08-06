@@ -74,8 +74,9 @@ Antigravity files/
 # Local Docker & Credentials
 # ==========================================
 config-ha/
+config-ha-backup/
 config.json
 secrets.json
 Token.txt
 device_settings.json
-
+

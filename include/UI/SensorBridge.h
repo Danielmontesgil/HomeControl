@@ -4,6 +4,7 @@
 #include "Core/BuildInfo.h"
 #include "Devices/InternetAccessModel.h"
 #include "Devices/ILicenseManager.h"
+#include "Devices/DeviceMappingManager.h"
 
 class DeviceModel;
 class IDeviceFactory;
@@ -101,5 +102,6 @@ private:
     QString m_haUrl;
     QString m_haToken;
     InternetAccessModel m_internetAccessModel;
+    DeviceMappingManager m_mappingManager;
 };
 

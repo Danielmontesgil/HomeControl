@@ -391,9 +391,17 @@ void HaWebSocketController::parseHaMessage(const QString& message)
                 {
                     type = "Switch";
                 }
-                else if (entityId.contains("lavavajillas") || entityId.contains("dishwasher"))
+                else if (entityId.startsWith("sensor."))
                 {
-                    type = "Dishwasher";
+                    type = "Sensor";
+                }
+                else if (entityId.startsWith("binary_sensor."))
+                {
+                    type = "BinarySensor";
+                }
+                else if (entityId.startsWith("button."))
+                {
+                    type = "Button";
                 }
 
                 if (!type.isEmpty())

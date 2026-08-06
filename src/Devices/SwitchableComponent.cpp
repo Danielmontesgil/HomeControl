@@ -7,9 +7,26 @@ SwitchableComponent::SwitchableComponent(HomeDeviceBase* parent)
 {
 }
 
-void SwitchableComponent::updateState(const QJsonObject&, const QString& stateStr)
+void SwitchableComponent::setPowerEntityId(const QString& entityId)
 {
-    m_isOn = (stateStr == "on" || stateStr == "cleaning" || stateStr == "true");
+    m_powerEntityId = entityId.toLower();
+}
+
+void SwitchableComponent::updateState(const QJsonObject& attributes, const QString& stateStr)
+{
+    if (!m_powerEntityId.isEmpty())
+    {
+        if (attributes.contains("entity_id"))
+        {
+            QString entityId = attributes["entity_id"].toString().toLower();
+            if (entityId == m_powerEntityId)
+            {
+                m_isOn = (stateStr.toLower() == "on" || stateStr.toLower() == "true");
+            }
+        }
+        return;
+    }
+    m_isOn = (stateStr.toLower() == "on" || stateStr.toLower() == "cleaning" || stateStr.toLower() == "true");
 }
 
 std::unique_ptr<ICommand> SwitchableComponent::parseCommand(const QString& payload, IHaController& controller)

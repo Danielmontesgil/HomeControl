@@ -6,6 +6,8 @@
 #include "Commands/ICommand.h"
 #include "IDeviceFactory.h"
 #include "ISettingsManager.h"
+#include "Devices/DishwasherComponent.h"
+#include "Devices/SwitchableComponent.h"
 #include <QColor>
 #include <QJsonArray>
 #include <QGuiApplication>
@@ -14,6 +16,7 @@
 SensorBridge::SensorBridge(IDeviceFactory& deviceFactory, DeviceModel& deviceModel, IHaController& haController, ISettingsManager& settingsManager, ILicenseManager& licenseManager, QObject* parent) 
     : QObject(parent), m_haController(haController), m_deviceFactory(deviceFactory), m_deviceModel(deviceModel), m_settingsManager(settingsManager), m_licenseManager(licenseManager), m_internetAccessModel(this)
 {
+    m_mappingManager.loadMappings(QStringLiteral("config.json"));
 }
 
 void SensorBridge::publishCommand(const QString& topic, const QString& payload)
@@ -91,17 +94,33 @@ void SensorBridge::stopDevice(const QString& topic)
 
 void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entityId, const QString& friendlyName, const QString& state, const QJsonObject& attributes)
 {
-    if (entityId.contains(QStringLiteral("lavavajillas")) || entityId.contains(QStringLiteral("dishwasher")))
+    // 1. Intercept mapped compound devices
+    if (m_mappingManager.isEntityMapped(entityId))
     {
-        QString targetTopic = QStringLiteral("dishwasher.bosch_lavavajillas");
-        QString targetName = QStringLiteral("Bosch Lavavajillas");
-        QString targetType = QStringLiteral("Dishwasher");
+        QString targetTopic = m_mappingManager.getDeviceTopicForEntity(entityId);
+        QString targetName = m_mappingManager.getDeviceNameForEntity(entityId);
+        QString targetType = m_mappingManager.getDeviceTypeForEntity(entityId);
 
         auto* device = m_deviceModel.findByTopic(targetTopic);
         if (!device)
         {
             addDevice(targetType, targetName, targetTopic);
             device = m_deviceModel.findByTopic(targetTopic);
+
+            if (device && targetType == QStringLiteral("Dishwasher"))
+            {
+                auto mappings = m_mappingManager.getEntityMappingsForDevice(targetTopic);
+                if (auto* dw = device->getComponent("dishwasher"))
+                {
+                    auto* dwComp = static_cast<DishwasherComponent*>(dw);
+                    dwComp->setEntityMappings(mappings);
+                }
+                if (auto* sw = device->getComponent("switchable"))
+                {
+                    auto* swComp = static_cast<SwitchableComponent*>(sw);
+                    swComp->setPowerEntityId(mappings.value(QStringLiteral("power")).toString());
+                }
+            }
         }
 
         if (device)
@@ -112,6 +131,10 @@ void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entity
         }
         return;
     }
+
+    bool isExcluded = entityId.startsWith(QStringLiteral("light.")) || 
+                      entityId.startsWith(QStringLiteral("cover.")) || 
+                      entityId.startsWith(QStringLiteral("vacuum."));
 
     if (entityId.startsWith("switch.") || type == "Switch")
     {
@@ -131,6 +154,11 @@ void SensorBridge::onDeviceDiscovered(const QString& type, const QString& entity
         {
             m_internetAccessModel.handleTrackerUpdate(entityId, state, friendlyName);
         }
+        return;
+    }
+
+    if (type == QStringLiteral("Sensor") || type == QStringLiteral("BinarySensor") || type == QStringLiteral("Button"))
+    {
         return;
     }
 
@@ -160,9 +188,10 @@ void SensorBridge::renameDevice(const QString& topic, const QString& newName)
 
 void SensorBridge::onDeviceStateChanged(const QString& entityId, const QString& state, const QJsonObject& attributes)
 {
-    if (entityId.contains(QStringLiteral("lavavajillas")) || entityId.contains(QStringLiteral("dishwasher")))
+    // 1. Intercept mapped compound devices
+    if (m_mappingManager.isEntityMapped(entityId))
     {
-        QString targetTopic = QStringLiteral("dishwasher.bosch_lavavajillas");
+        QString targetTopic = m_mappingManager.getDeviceTopicForEntity(entityId);
         if (auto* device = m_deviceModel.findByTopic(targetTopic))
         {
             QJsonObject modifiedAttributes = attributes;

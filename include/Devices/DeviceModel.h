@@ -33,7 +33,10 @@ public:
 		DishwasherDoorOpenRole,
 		DishwasherRemainingTimeRole,
 		DishwasherProgramRole,
-		DishwasherStateRole
+		DishwasherStateRole,
+		DishwasherExtraDryRole,
+		DishwasherHalfLoadRole,
+		DishwasherSpeedPerfectRole
 	};
 
 	explicit DeviceModel(QObject *parent = nullptr);

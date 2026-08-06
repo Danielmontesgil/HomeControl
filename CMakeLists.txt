@@ -62,6 +62,8 @@ set(PROJECT_SOURCES
     src/Devices/DishwasherComponent.cpp
     include/Devices/DishwasherComponent.h
     src/Devices/JsonSettingsManager.cpp
+    src/Devices/DeviceMappingManager.cpp
+    include/Devices/DeviceMappingManager.h
     include/Core/ThreadSafeValue.h
     include/UI/SensorBridge.h
     include/Network/HaWebSocketController.h
@@ -202,6 +204,7 @@ add_executable(HomeControlTests
     tests/LoggerTest.cpp
     tests/InternetAccessModelTest.cpp
     tests/DishwasherComponentTest.cpp
+    tests/LocalLicenseManagerTest.cpp
     ${LIB_SOURCES}
 )
 

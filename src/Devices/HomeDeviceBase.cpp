@@ -67,6 +67,19 @@ std::unique_ptr<ICommand> HomeDeviceBase::parseCommand(const std::string& payloa
 void HomeDeviceBase::updateState(const std::string& state, const QJsonObject& attributes)
 {
     bool nextAvailable = (state != "unavailable" && state != "unknown");
+
+    if (m_type == DeviceType::Dishwasher && attributes.contains(QStringLiteral("entity_id")))
+    {
+        QString entityId = attributes[QStringLiteral("entity_id")].toString().toLower();
+        bool isPowerSwitch = entityId.startsWith(QStringLiteral("switch.")) && 
+                             (entityId.contains(QStringLiteral("power_status")) || entityId.contains(QStringLiteral("power")));
+        
+        if (!isPowerSwitch && !nextAvailable)
+        {
+            nextAvailable = m_available;
+        }
+    }
+
     if (m_available != nextAvailable)
     {
         m_available = nextAvailable;

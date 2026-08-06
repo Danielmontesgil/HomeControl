@@ -44,6 +44,32 @@ ApplicationWindow {
     property bool expandedVacuums: _vacuumCount <= 2
     property bool expandedDishwashers: _dishwasherCount <= 2
 
+    function formatDishwasherState(state, isOn, available) {
+        if (!available) return qsTr("No disponible");
+        if (!isOn) return qsTr("Apagado");
+        if (!state) return qsTr("Listo");
+        
+        var s = state.toString();
+        if (s.indexOf("Run") !== -1) return qsTr("Lavando");
+        if (s.indexOf("Ready") !== -1) return qsTr("Listo");
+        if (s.indexOf("Finished") !== -1) return qsTr("Terminado");
+        if (s.indexOf("Pause") !== -1) return qsTr("Pausado");
+        if (s.indexOf("Inactive") !== -1) return qsTr("Inactivo");
+        if (s.indexOf("DelayedStart") !== -1) return qsTr("Inicio diferido");
+        
+        return s;
+    }
+
+    function formatRemainingTime(minutes) {
+        if (!minutes || minutes <= 0) return "";
+        var hrs = Math.floor(minutes / 60);
+        var mins = minutes % 60;
+        if (hrs > 0) {
+            return hrs + " h " + (mins < 10 ? "0" + mins : mins) + " min";
+        }
+        return mins + " min";
+    }
+
     function moveModule(name, direction) {
         var idx = moduleOrder.indexOf(name);
         if (idx === -1) return;
@@ -234,6 +260,7 @@ ApplicationWindow {
                     model: moduleOrder
                     delegate: Loader {
                         width: parent.width
+                        height: visible ? (item ? item.implicitHeight : 0) : 0
                         visible: {
                             if (modelData === "parental") return !sensorBridge.isParentalPremium || sensorBridge.internetAccess.activeCount > 0;
                             if (modelData === "lighting") return _lightCount > 0;
@@ -243,7 +270,6 @@ ApplicationWindow {
                             return false;
                         }
                         sourceComponent: {
-                            if (!visible) return null;
                             if (modelData === "parental") return parentalModuleComponent;
                             if (modelData === "lighting") return lightingModuleComponent;
                             if (modelData === "covers") return coversModuleComponent;
@@ -265,45 +291,51 @@ ApplicationWindow {
                     spacing: 12
                     visible: !sensorBridge.isParentalPremium || sensorBridge.internetAccess.activeCount > 0
 
-                    RowLayout {
+                    Item {
                         width: parent.width
-                        spacing: 8
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            Label {
-                                text: qsTr("PARENTAL CONTROL")
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
-                            }
-                            Text {
-                                visible: !window.expandedParental && sensorBridge.isParentalPremium
-                                text: "• " + sensorBridge.internetAccess.activeCount + " online"
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
-                            }
-                        }
-                        
-                        RowLayout {
-                            visible: isEditingLayout
-                            spacing: 4
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("parental", -1) }
-                            }
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("parental", 1) }
-                            }
-                        }
+                        height: parentalHeaderRow.implicitHeight
 
-                        Text {
-                            text: window.expandedParental ? "▲" : "▼"
-                            font.pixelSize: 10; color: colorAccent
-                            visible: !isEditingLayout && sensorBridge.isParentalPremium
+                        RowLayout {
+                            id: parentalHeaderRow
+                            anchors.fill: parent
+                            spacing: 8
+                            
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Label {
+                                    text: qsTr("PARENTAL CONTROL")
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                                Text {
+                                    visible: !window.expandedParental && sensorBridge.isParentalPremium
+                                    text: "• " + sensorBridge.internetAccess.activeCount + " online"
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                            }
+                            
+                            RowLayout {
+                                visible: isEditingLayout
+                                spacing: 4
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("parental", -1) }
+                                }
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("parental", 1) }
+                                }
+                            }
+
+                            Text {
+                                text: window.expandedParental ? "▲" : "▼"
+                                font.pixelSize: 10; color: colorAccent
+                                visible: !isEditingLayout && sensorBridge.isParentalPremium
+                            }
                         }
 
                         MouseArea {
@@ -439,63 +471,69 @@ ApplicationWindow {
                     spacing: 12
                     visible: _lightCount > 0
                     
-                    RowLayout {
+                    Item {
                         width: parent.width
-                        spacing: 8
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            Label {
-                                text: qsTr("LIGHTING")
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
-                            }
-                            Text {
-                                visible: !window.expandedLighting
-                                text: "• " + getActiveLightsCount() + " active"
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
-                            }
-                        }
+                        height: lightingHeaderRow.implicitHeight
 
-                        Switch {
-                            id: masterLightSwitch
-                            visible: _lightCount > 1 && window.expandedLighting && !isEditingLayout
-                            scale: 0.85
-                            checked: sensorBridge.getCountByType(0) > 0
+                        RowLayout {
+                            id: lightingHeaderRow
+                            anchors.fill: parent
+                            spacing: 8
                             
-                            indicator: Rectangle {
-                                implicitWidth: 44; implicitHeight: 24; radius: 12
-                                color: masterLightSwitch.checked ? colorSuccess : "#1F293D"
-                                Rectangle {
-                                    x: masterLightSwitch.checked ? parent.width - width - 2 : 2
-                                    y: 2; width: 20; height: 20; radius: 10; color: "white"
-                                    Behavior on x { NumberAnimation { duration: 150 } }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Label {
+                                    text: qsTr("LIGHTING")
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                                Text {
+                                    visible: !window.expandedLighting
+                                    text: "• " + getActiveLightsCount() + " active"
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
                                 }
                             }
-                            onClicked: sensorBridge.setAllDevicesState(0, checked ? "ON" : "OFF")
-                        }
 
-                        RowLayout {
-                            visible: isEditingLayout
-                            spacing: 4
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", -1) }
+                            Switch {
+                                id: masterLightSwitch
+                                visible: _lightCount > 1 && window.expandedLighting && !isEditingLayout
+                                scale: 0.85
+                                checked: sensorBridge.getCountByType(0) > 0
+                                
+                                indicator: Rectangle {
+                                    implicitWidth: 44; implicitHeight: 24; radius: 12
+                                    color: masterLightSwitch.checked ? colorSuccess : "#1F293D"
+                                    Rectangle {
+                                        x: masterLightSwitch.checked ? parent.width - width - 2 : 2
+                                        y: 2; width: 20; height: 20; radius: 10; color: "white"
+                                        Behavior on x { NumberAnimation { duration: 150 } }
+                                    }
+                                }
+                                onClicked: sensorBridge.setAllDevicesState(0, checked ? "ON" : "OFF")
                             }
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", 1) }
-                            }
-                        }
 
-                        Text {
-                            text: window.expandedLighting ? "▲" : "▼"
-                            font.pixelSize: 10; color: colorAccent
-                            visible: !isEditingLayout
+                            RowLayout {
+                                visible: isEditingLayout
+                                spacing: 4
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", -1) }
+                                }
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("lighting", 1) }
+                                }
+                            }
+
+                            Text {
+                                text: window.expandedLighting ? "▲" : "▼"
+                                font.pixelSize: 10; color: colorAccent
+                                visible: !isEditingLayout
+                            }
                         }
 
                         MouseArea {
@@ -602,63 +640,69 @@ ApplicationWindow {
                     spacing: 12
                     visible: _rollerCount > 0
 
-                    RowLayout {
+                    Item {
                         width: parent.width
-                        spacing: 8
-                        
+                        height: coversHeaderRow.implicitHeight
+
                         RowLayout {
-                            Layout.fillWidth: true
+                            id: coversHeaderRow
+                            anchors.fill: parent
                             spacing: 8
-                            Label {
-                                text: qsTr("BLINDS & COMFORT")
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Label {
+                                    text: qsTr("BLINDS & COMFORT")
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                                Text {
+                                    visible: !window.expandedCovers
+                                    text: "• " + getOpenCoversCount() + " open"
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
                             }
+
+                            Slider {
+                                id: masterRollerSlider
+                                visible: _rollerCount > 1 && window.expandedCovers && !isEditingLayout
+                                Layout.preferredWidth: 100
+                                onMoved: sensorBridge.setAllDevicesState(1, Math.round(value * 100).toString())
+                                handle: Rectangle {
+                                    x: masterRollerSlider.leftPadding + masterRollerSlider.visualPosition * (masterRollerSlider.availableWidth - width)
+                                    y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
+                                    implicitWidth: 18; implicitHeight: 18; radius: 9
+                                    color: masterRollerSlider.pressed ? colorAccent : "#FFFFFF"; border.color: colorAccent; border.width: 1
+                                }
+                                background: Rectangle {
+                                    x: masterRollerSlider.leftPadding; y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
+                                    implicitWidth: 100; implicitHeight: 6; width: masterRollerSlider.availableWidth; height: implicitHeight; radius: 3; color: "#1F293D"
+                                    Rectangle { width: masterRollerSlider.visualPosition * parent.width; height: parent.height; color: colorAccent; radius: 3 }
+                                }
+                            }
+
+                            RowLayout {
+                                visible: isEditingLayout
+                                spacing: 4
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("covers", -1) }
+                                }
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("covers", 1) }
+                                }
+                            }
+
                             Text {
-                                visible: !window.expandedCovers
-                                text: "• " + getOpenCoversCount() + " open"
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                text: window.expandedCovers ? "▲" : "▼"
+                                font.pixelSize: 10; color: colorAccent
+                                visible: !isEditingLayout
                             }
-                        }
-
-                        Slider {
-                            id: masterRollerSlider
-                            visible: _rollerCount > 1 && window.expandedCovers && !isEditingLayout
-                            Layout.preferredWidth: 100
-                            onMoved: sensorBridge.setAllDevicesState(1, Math.round(value * 100).toString())
-                            handle: Rectangle {
-                                x: masterRollerSlider.leftPadding + masterRollerSlider.visualPosition * (masterRollerSlider.availableWidth - width)
-                                y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
-                                implicitWidth: 18; implicitHeight: 18; radius: 9
-                                color: masterRollerSlider.pressed ? colorAccent : "#FFFFFF"; border.color: colorAccent; border.width: 1
-                            }
-                            background: Rectangle {
-                                x: masterRollerSlider.leftPadding; y: masterRollerSlider.topPadding + masterRollerSlider.availableHeight / 2 - height / 2
-                                implicitWidth: 100; implicitHeight: 6; width: masterRollerSlider.availableWidth; height: implicitHeight; radius: 3; color: "#1F293D"
-                                Rectangle { width: masterRollerSlider.visualPosition * parent.width; height: parent.height; color: colorAccent; radius: 3 }
-                            }
-                        }
-
-                        RowLayout {
-                            visible: isEditingLayout
-                            spacing: 4
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("covers", -1) }
-                            }
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("covers", 1) }
-                            }
-                        }
-
-                        Text {
-                            text: window.expandedCovers ? "▲" : "▼"
-                            font.pixelSize: 10; color: colorAccent
-                            visible: !isEditingLayout
                         }
 
                         MouseArea {
@@ -748,45 +792,51 @@ ApplicationWindow {
                     spacing: 12
                     visible: _vacuumCount > 0
 
-                    RowLayout {
+                    Item {
                         width: parent.width
-                        spacing: 8
-                        
+                        height: vacuumsHeaderRow.implicitHeight
+
                         RowLayout {
-                            Layout.fillWidth: true
+                            id: vacuumsHeaderRow
+                            anchors.fill: parent
                             spacing: 8
-                            Label {
-                                text: qsTr("VACUUMS & CLEANING")
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Label {
+                                    text: qsTr("VACUUMS & CLEANING")
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                                Text {
+                                    visible: !window.expandedVacuums
+                                    text: "• " + getCleaningVacuumsCount() + " cleaning"
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
                             }
+
+                            RowLayout {
+                                visible: isEditingLayout
+                                spacing: 4
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", -1) }
+                                }
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", 1) }
+                                }
+                            }
+
                             Text {
-                                visible: !window.expandedVacuums
-                                text: "• " + getCleaningVacuumsCount() + " cleaning"
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                text: window.expandedVacuums ? "▲" : "▼"
+                                font.pixelSize: 10; color: colorAccent
+                                visible: !isEditingLayout
                             }
-                        }
-
-                        RowLayout {
-                            visible: isEditingLayout
-                            spacing: 4
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", -1) }
-                            }
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("vacuums", 1) }
-                            }
-                        }
-
-                        Text {
-                            text: window.expandedVacuums ? "▲" : "▼"
-                            font.pixelSize: 10; color: colorAccent
-                            visible: !isEditingLayout
                         }
 
                         MouseArea {
@@ -903,45 +953,51 @@ ApplicationWindow {
                     spacing: 12
                     visible: _dishwasherCount > 0
 
-                    RowLayout {
+                    Item {
                         width: parent.width
-                        spacing: 8
-                        
+                        height: dishwashersHeaderRow.implicitHeight
+
                         RowLayout {
-                            Layout.fillWidth: true
+                            id: dishwashersHeaderRow
+                            anchors.fill: parent
                             spacing: 8
-                            Label {
-                                text: qsTr("DISHWASHERS")
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                            
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Label {
+                                    text: qsTr("DISHWASHERS")
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
+                                Text {
+                                    visible: !window.expandedDishwashers
+                                    text: "• " + getRunningDishwashersCount() + " active"
+                                    font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                }
                             }
+
+                            RowLayout {
+                                visible: isEditingLayout
+                                spacing: 4
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", -1) }
+                                }
+                                Rectangle {
+                                    width: 24; height: 24; radius: 4
+                                    color: "#1E293D"; border.color: colorBorder
+                                    Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
+                                    MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", 1) }
+                                }
+                            }
+
                             Text {
-                                visible: !window.expandedDishwashers
-                                text: "• " + getRunningDishwashersCount() + " active"
-                                font.pixelSize: 11; font.weight: Font.Bold; color: colorTextSecondary
+                                text: window.expandedDishwashers ? "▲" : "▼"
+                                font.pixelSize: 10; color: colorAccent
+                                visible: !isEditingLayout
                             }
-                        }
-
-                        RowLayout {
-                            visible: isEditingLayout
-                            spacing: 4
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▲"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", -1) }
-                            }
-                            Rectangle {
-                                width: 24; height: 24; radius: 4
-                                color: "#1E293D"; border.color: colorBorder
-                                Text { anchors.centerIn: parent; text: "▼"; font.pixelSize: 10; color: colorTextPrimary }
-                                MouseArea { anchors.fill: parent; onClicked: moveModule("dishwashers", 1) }
-                            }
-                        }
-
-                        Text {
-                            text: window.expandedDishwashers ? "▲" : "▼"
-                            font.pixelSize: 10; color: colorAccent
-                            visible: !isEditingLayout
                         }
 
                         MouseArea {
@@ -966,67 +1022,137 @@ ApplicationWindow {
                             Repeater {
                                 model: sensorBridge.devices
                                 delegate: Rectangle {
-                                    visible: model.deviceType === 3
-                                    width: visible ? parent.width : 0
-                                    height: visible ? 130 : 0
-                                    color: colorCardBg
-                                    radius: 16; border.color: colorBorder; border.width: 1
-                                    opacity: model.available ? 1.0 : 0.4
-                                    Behavior on opacity { NumberAnimation { duration: 150 } }
+                                     id: dishwasherCard
+                                     visible: model.deviceType === 3
+                                     width: visible ? parent.width : 0
+                                     height: visible ? 130 : 0
+                                     color: model.isOn ? colorCardBgActive : colorCardBg
+                                     radius: 16
+                                     border.color: model.isOn ? colorBorderActive : colorBorder
+                                     border.width: 1
+                                     opacity: model.available ? 1.0 : 0.4
+                                     Behavior on opacity { NumberAnimation { duration: 150 } }
+                                     Behavior on color { ColorAnimation { duration: 150 } }
 
-                                    ColumnLayout {
-                                        anchors.fill: parent; anchors.margins: 14; spacing: 10
-                                        RowLayout {
-                                            Layout.fillWidth: true; spacing: 12
-                                            Rectangle {
-                                                width: 38; height: 38; radius: 19
-                                                color: model.dishwasherDoorOpen ? "#3D1F1F" : ((model.dishwasherState === "Run" || model.dishwasherState === "Running") ? "#1F3A2B" : "#1F2538")
-                                                Text { anchors.centerIn: parent; text: model.dishwasherDoorOpen ? "🚪" : "🍽️"; font.pixelSize: 18 }
-                                            }
-                                            ColumnLayout {
-                                                spacing: 2; Layout.fillWidth: true
-                                                Text { text: model.deviceId ?? ""; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 15; elide: Text.ElideRight }
-                                                RowLayout {
-                                                    spacing: 5
-                                                    Text {
-                                                        text: !model.available ? qsTr("Status: Unavailable") : 
-                                                              (model.dishwasherDoorOpen ? qsTr("Status: Door Open") : 
-                                                              (model.isOn ? qsTr("Status: %1").arg(model.dishwasherState ?? qsTr("Ready")) : qsTr("Status: Power Off")))
-                                                        font.pixelSize: 12
-                                                        color: !model.available || model.dishwasherDoorOpen ? colorDanger : 
-                                                               ((model.dishwasherState === "Run" || model.dishwasherState === "Running") ? colorSuccess : colorTextSecondary)
-                                                        font.weight: Font.DemiBold
-                                                    }
-                                                }
-                                            }
-                                            ColumnLayout {
-                                                spacing: 2
-                                                Text {
-                                                    text: (model.available && model.isOn && model.dishwasherRemainingTime > 0) ? (model.dishwasherRemainingTime + " min") : ""
-                                                    font.pixelSize: 14; font.weight: Font.Black; color: colorSuccess; Layout.alignment: Qt.AlignRight
-                                                }
-                                                Text { text: model.available ? (model.dishwasherProgram ?? "") : ""; font.pixelSize: 11; color: colorTextSecondary; Layout.alignment: Qt.AlignRight }
-                                            }
-                                        }
-                                        RowLayout {
-                                            Layout.fillWidth: true; spacing: 8
-                                            Button {
-                                                Layout.fillWidth: true; implicitHeight: 36; text: model.isOn ? qsTr("TURN OFF") : qsTr("TURN ON"); enabled: model.available; padding: 0
-                                                background: Rectangle { color: parent.enabled ? (model.isOn ? "#3D2B1F" : "#1F2E3D") : "#151B2E"; border.color: parent.enabled ? (model.isOn ? colorWarning : colorAccent) : colorBorder; radius: 8 }
-                                                contentItem: Text { text: parent.text; color: parent.enabled ? (model.isOn ? colorWarning : colorAccent) : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                                onClicked: sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
-                                            }
-                                            Button {
-                                                Layout.fillWidth: true; implicitHeight: 36; text: qsTr("START")
-                                                enabled: model.available && model.isOn && (model.dishwasherState !== "Run" && model.dishwasherState !== "Running")
-                                                padding: 0
-                                                background: Rectangle { color: parent.enabled ? "#1F3A2B" : "#151B2E"; border.color: parent.enabled ? colorSuccess : colorBorder; radius: 8 }
-                                                contentItem: Text { text: parent.text; color: parent.enabled ? colorSuccess : "#475569"; font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                                                onClicked: sensorBridge.publishCommand(model.topic, "START")
-                                            }
-                                        }
-                                    }
-                                }
+                                     scale: cardMouseArea.pressed ? 0.98 : 1.0
+                                     Behavior on scale { NumberAnimation { duration: 80 } }
+
+                                     ColumnLayout {
+                                         anchors.fill: parent; anchors.margins: 14; spacing: 10
+
+                                         // Fila Superior: Info General
+                                         RowLayout {
+                                             Layout.fillWidth: true
+                                             spacing: 12
+                                             
+                                             Rectangle {
+                                                 width: 36; height: 36; radius: 18
+                                                 color: model.dishwasherDoorOpen ? "#3D1F1F" : ((model.dishwasherState !== undefined && model.dishwasherState !== null && model.dishwasherState.toString().indexOf("Run") !== -1) ? "#1F3A2B" : "#1F2538")
+                                                 Text { anchors.centerIn: parent; text: model.dishwasherDoorOpen ? "🚪" : "🍽️"; font.pixelSize: 16 }
+                                             }
+
+                                             ColumnLayout {
+                                                 spacing: 1; Layout.fillWidth: true
+                                                 Text { text: model.deviceId ?? ""; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 14; elide: Text.ElideRight }
+                                                 Text {
+                                                     text: formatDishwasherState(model.dishwasherState, model.isOn, model.available) + (model.dishwasherDoorOpen ? qsTr(" (Puerta abierta)") : "")
+                                                     font.pixelSize: 11
+                                                     color: !model.available || model.dishwasherDoorOpen ? colorDanger : 
+                                                            ((model.dishwasherState !== undefined && model.dishwasherState !== null && model.dishwasherState.toString().indexOf("Run") !== -1) ? colorSuccess : colorTextSecondary)
+                                                     font.weight: Font.DemiBold
+                                                 }
+                                             }
+
+                                             ColumnLayout {
+                                                 spacing: 1; Layout.alignment: Qt.AlignRight
+                                                 Text {
+                                                     text: (model.available && model.isOn && model.dishwasherRemainingTime > 0) ? formatRemainingTime(model.dishwasherRemainingTime) : ""
+                                                     font.pixelSize: 13; font.weight: Font.Black; color: colorSuccess; Layout.alignment: Qt.AlignRight
+                                                 }
+                                                 Text {
+                                                     text: (model.available && model.isOn && model.dishwasherProgram) ? (model.dishwasherProgram.toString().indexOf("Eco50") !== -1 ? "Eco 50°C" : "Programa") : ""
+                                                     font.pixelSize: 10; color: colorTextSecondary; Layout.alignment: Qt.AlignRight
+                                                 }
+                                             }
+                                         }
+
+                                         // Fila Inferior: Botones de Acción Rápida
+                                         RowLayout {
+                                             Layout.fillWidth: true
+                                             spacing: 8
+                                             visible: model.available
+
+                                             // Botón rápido de Encendido
+                                             Button {
+                                                 implicitHeight: 32
+                                                 Layout.preferredWidth: 100
+                                                 text: model.isOn ? qsTr("APAGAR") : qsTr("ENCENDER")
+                                                 padding: 0
+                                                 background: Rectangle {
+                                                     color: model.isOn ? "#3D2B1F" : "#1F2E3D"
+                                                     border.color: model.isOn ? colorWarning : colorAccent
+                                                     border.width: 1
+                                                     radius: 8
+                                                 }
+                                                 contentItem: Text {
+                                                     text: parent.text
+                                                     color: model.isOn ? colorWarning : colorAccent
+                                                     font.weight: Font.Bold; font.pixelSize: 10
+                                                     horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                                                 }
+                                                 onClicked: {
+                                                     sensorBridge.publishCommand(model.topic, model.isOn ? "OFF" : "ON")
+                                                 }
+                                             }
+
+                                             // Botón rápido de Ciclo
+                                             Button {
+                                                 implicitHeight: 32
+                                                 Layout.preferredWidth: 100
+                                                 readonly property bool isRunning: (model.dishwasherState !== undefined && model.dishwasherState !== null) ? model.dishwasherState.toString().indexOf("Run") !== -1 : false
+                                                 text: isRunning ? qsTr("DETENER") : qsTr("INICIAR")
+                                                 enabled: model.isOn && (!isRunning ? !model.dishwasherDoorOpen : true)
+                                                 padding: 0
+                                                 background: Rectangle {
+                                                     color: parent.enabled ? (parent.isRunning ? "#3D1F1F" : "#1F3A2B") : "#151B2E"
+                                                     border.color: parent.enabled ? (parent.isRunning ? colorDanger : colorSuccess) : colorBorder
+                                                     border.width: 1
+                                                     radius: 8
+                                                 }
+                                                 contentItem: Text {
+                                                     text: parent.text
+                                                     color: parent.enabled ? (parent.isRunning ? colorDanger : colorSuccess) : "#475569"
+                                                     font.weight: Font.Bold; font.pixelSize: 10
+                                                     horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                                                 }
+                                                 onClicked: {
+                                                     sensorBridge.publishCommand(model.topic, isRunning ? "STOP" : "START")
+                                                 }
+                                             }
+
+                                             Item { Layout.fillWidth: true }
+
+                                             // Programa Seleccionado a la derecha
+                                             Text {
+                                                 visible: model.isOn && model.dishwasherProgram
+                                                 text: model.dishwasherProgram ? (model.dishwasherProgram.toString().indexOf("Eco50") !== -1 ? "Eco 50°C" : "Personalizado") : ""
+                                                 font.pixelSize: 11
+                                                 font.weight: Font.DemiBold
+                                                 color: colorTextSecondary
+                                                 Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                             }
+                                         }
+                                     }
+
+                                     MouseArea {
+                                         id: cardMouseArea
+                                         width: parent.width
+                                         height: 75
+                                         anchors.top: parent.top
+                                         enabled: model.available
+                                         onPressAndHold: { activeControlDevice = model; dishwasherControlPopup.open() }
+                                     }
+                                 }
                             }
                         }
                     }
@@ -1127,7 +1253,7 @@ ApplicationWindow {
                 Slider {
                     id: brightnessSlider
                     Layout.fillWidth: true
-                    value: activeControlDevice ? activeControlDevice.deviceValue : 0.0
+                    value: (activeControlDevice && activeControlDevice.deviceValue !== undefined) ? activeControlDevice.deviceValue : 0.0
                     onPressedChanged: {
                         if (!pressed && activeControlDevice) {
                             sensorBridge.publishCommand(activeControlDevice.topic, "BRIGHTNESS:" + Math.round(value * 100))
@@ -1165,9 +1291,9 @@ ApplicationWindow {
                 Slider {
                     id: kelvinSlider
                     Layout.fillWidth: true
-                    from: activeControlDevice ? activeControlDevice.minColorTemp : 2000
-                    to: activeControlDevice ? activeControlDevice.maxColorTemp : 6500
-                    value: activeControlDevice ? activeControlDevice.colorTemp : 4000
+                    from: (activeControlDevice && activeControlDevice.minColorTemp !== undefined) ? activeControlDevice.minColorTemp : 2000
+                    to: (activeControlDevice && activeControlDevice.maxColorTemp !== undefined) ? activeControlDevice.maxColorTemp : 6500
+                    value: (activeControlDevice && activeControlDevice.colorTemp !== undefined) ? activeControlDevice.colorTemp : 4000
                     stepSize: 50
                     onPressedChanged: {
                         if (!pressed && activeControlDevice) {
@@ -1310,7 +1436,7 @@ ApplicationWindow {
                     Layout.preferredHeight: 160
                     Layout.preferredWidth: 40
                     Layout.alignment: Qt.AlignVCenter
-                    value: activeControlDevice ? activeControlDevice.deviceValue : 0.0
+                    value: (activeControlDevice && activeControlDevice.deviceValue !== undefined) ? activeControlDevice.deviceValue : 0.0
                     onPressedChanged: {
                         if (!pressed && activeControlDevice) {
                             sensorBridge.publishCommand(activeControlDevice.topic, Math.round(value * 100).toString())
@@ -1564,6 +1690,386 @@ ApplicationWindow {
                         background: Rectangle { color: "#1F293D"; radius: 6 }
                         contentItem: Text { text: parent.text; color: colorTextPrimary; font.weight: Font.Bold; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                         onClicked: activeVacuumDevice && sensorBridge.publishCommand(activeVacuumDevice.topic, "LOCATE")
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. Popup Detalles del Lavavajillas (Opciones + Programas + Controles)
+    Popup {
+        id: dishwasherControlPopup
+        width: parent.width
+        height: 400
+        y: parent.height - height
+        modal: true
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        padding: 0
+
+        enter: Transition {
+            NumberAnimation { property: "y"; from: window.height; to: window.height - 400; duration: 250; easing.type: Easing.OutCubic }
+        }
+        exit: Transition {
+            NumberAnimation { property: "y"; from: window.height - 400; to: window.height; duration: 200; easing.type: Easing.InCubic }
+        }
+
+        background: Rectangle {
+            color: colorCardBg
+            radius: 24
+            Rectangle {
+                width: parent.width; height: 24; y: parent.height - 24; color: colorCardBg
+            }
+            Rectangle {
+                width: parent.width; height: 1; color: colorBorder
+            }
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 20
+            anchors.rightMargin: 20
+            anchors.topMargin: 20
+            anchors.bottomMargin: 32
+            spacing: 14
+
+            Rectangle {
+                width: 36; height: 5; radius: 2.5; color: "#374151"
+                Layout.alignment: Qt.AlignHCenter
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                ColumnLayout {
+                    spacing: 2
+                    Text {
+                        text: activeControlDevice ? activeControlDevice.deviceId : ""
+                        color: colorTextPrimary
+                        font.pixelSize: 18; font.weight: Font.Bold
+                    }
+                    Text {
+                        text: activeControlDevice ? activeControlDevice.topic : ""
+                        color: colorTextSecondary; font.pixelSize: 11
+                    }
+                }
+                Item { Layout.fillWidth: true }
+                Button {
+                    text: "✏️"
+                    flat: true
+                    padding: 0
+                    implicitWidth: 32; implicitHeight: 32
+                    contentItem: Text { text: parent.text; color: colorTextSecondary; font.pixelSize: 16; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    onClicked: {
+                        if (activeControlDevice) {
+                            deviceToRename = activeControlDevice.topic
+                            aliasInput.text = activeControlDevice.deviceId
+                            renameDialog.open()
+                        }
+                    }
+                }
+                Button {
+                    text: "X"
+                    flat: true
+                    padding: 0
+                    implicitWidth: 32; implicitHeight: 32
+                    contentItem: Text { text: parent.text; color: colorTextSecondary; font.pixelSize: 18; font.weight: Font.Bold; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+                    onClicked: dishwasherControlPopup.close()
+                }
+            }
+
+            // 1. Fila de Estado: Operación + Puerta
+            RowLayout {
+                Layout.fillWidth: true; spacing: 16
+                Rectangle {
+                    color: "#1A2035"; radius: 8
+                    Layout.fillWidth: true; implicitHeight: 45
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 10; spacing: 8
+                        Text { text: "🚪"; font.pixelSize: 16 }
+                        Text {
+                            text: (activeControlDevice && activeControlDevice.dishwasherDoorOpen) ? qsTr("Puerta abierta") : qsTr("Puerta cerrada")
+                            color: (activeControlDevice && activeControlDevice.dishwasherDoorOpen) ? colorDanger : colorTextSecondary
+                            font.pixelSize: 12; font.weight: Font.Bold
+                        }
+                    }
+                }
+                Rectangle {
+                    color: "#1A2035"; radius: 8
+                    Layout.fillWidth: true; implicitHeight: 45
+                    RowLayout {
+                        anchors.fill: parent; anchors.margins: 10; spacing: 8
+                        Text { text: "⚙️"; font.pixelSize: 16 }
+                        Text {
+                            text: activeControlDevice ? formatDishwasherState(activeControlDevice.dishwasherState, activeControlDevice.isOn, activeControlDevice.available) : ""
+                            color: (activeControlDevice && (activeControlDevice.dishwasherState === "Run" || activeControlDevice.dishwasherState === "Running")) ? colorSuccess : colorTextPrimary
+                            font.pixelSize: 12; font.weight: Font.Bold
+                        }
+                    }
+                }
+            }
+
+            // 2. Información del programa y tiempo restante
+            ColumnLayout {
+                Layout.fillWidth: true; spacing: 6
+                visible: activeControlDevice && activeControlDevice.isOn
+                
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text { text: qsTr("PROGRAMA SELECCIONADO"); font.pixelSize: 10; font.weight: Font.Bold; color: colorTextSecondary }
+                    Item { Layout.fillWidth: true }
+                    Text {
+                        text: (activeControlDevice && activeControlDevice.dishwasherRemainingTime > 0) ? qsTr("%1 restante").arg(formatRemainingTime(activeControlDevice.dishwasherRemainingTime)) : ""
+                        font.pixelSize: 11; font.weight: Font.Bold; color: colorSuccess
+                    }
+                }
+
+                ComboBox {
+                    id: programComboBox
+                    Layout.fillWidth: true
+                    implicitHeight: 45
+                    model: [
+                        { text: "Eco 50°C", value: "Dishcare.Dishwasher.Program.Eco50" },
+                        { text: "Auto 45-65°C", value: "Dishcare.Dishwasher.Program.Auto2" },
+                        { text: "Intensive 70°C", value: "Dishcare.Dishwasher.Program.Intensiv70" },
+                        { text: "Quick wash 65°C", value: "Dishcare.Dishwasher.Program.Quick65" },
+                        { text: "Night Wash", value: "Dishcare.Dishwasher.Program.NightWash" },
+                        { text: "Machine Care", value: "Dishcare.Dishwasher.Program.MachineCare" },
+                        { text: "Pre-rinse", value: "Dishcare.Dishwasher.Program.PreRinse" }
+                    ]
+                    textRole: "text"
+                    valueRole: "value"
+
+                    property string currentDbProgram: (activeControlDevice && activeControlDevice.dishwasherProgram) ? activeControlDevice.dishwasherProgram.toString() : ""
+
+                    onCurrentDbProgramChanged: {
+                        if (!popup.visible) {
+                            updateIndexFromNetwork();
+                        }
+                    }
+
+                    function updateIndexFromNetwork() {
+                        if (!activeControlDevice || !activeControlDevice.dishwasherProgram) {
+                            currentIndex = -1;
+                            return;
+                        }
+                        var curProg = activeControlDevice.dishwasherProgram.toString();
+                        for (var i = 0; i < model.length; i++) {
+                            if (model[i].value === curProg) {
+                                currentIndex = i;
+                                return;
+                            }
+                        }
+                        currentIndex = -1;
+                    }
+
+                    Connections {
+                        target: dishwasherControlPopup
+                        function onOpened() {
+                            programComboBox.updateIndexFromNetwork();
+                        }
+                    }
+
+                    onActivated: {
+                        if (activeControlDevice) {
+                            sensorBridge.publishCommand(activeControlDevice.topic, "SELECT_PROGRAM:" + model[index].value);
+                        }
+                    }
+
+                    contentItem: RowLayout {
+                        spacing: 8
+                        Text { text: "🍽️"; font.pixelSize: 18; Layout.leftMargin: 12 }
+                        Text {
+                            text: programComboBox.displayText
+                            color: colorTextPrimary
+                            font.pixelSize: 13
+                            font.weight: Font.Bold
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    background: Rectangle {
+                        color: "#1A2035"
+                        border.color: colorBorder
+                        border.width: 1
+                        radius: 10
+                    }
+
+                    popup: Popup {
+                        y: programComboBox.height + 4
+                        width: programComboBox.width
+                        implicitHeight: contentItem.implicitHeight
+                        padding: 1
+
+                        contentItem: ListView {
+                            clip: true
+                            implicitHeight: contentHeight
+                            model: programComboBox.popup.visible ? programComboBox.delegateModel : null
+                            currentIndex: programComboBox.highlightedIndex
+
+                            ScrollIndicator.vertical: ScrollIndicator { }
+                        }
+
+                        background: Rectangle {
+                            color: "#111827"
+                            border.color: colorBorder
+                            border.width: 1
+                            radius: 12
+                        }
+                    }
+
+                    delegate: ItemDelegate {
+                        width: programComboBox.width
+                        height: 40
+                        highlighted: programComboBox.highlightedIndex === index
+                        
+                        contentItem: Text {
+                            text: modelData.text
+                            color: highlighted ? colorAccent : colorTextPrimary
+                            font.weight: highlighted ? Font.Bold : Font.Normal
+                            font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 16
+                        }
+
+                        background: Rectangle {
+                            color: highlighted ? "#1E293B" : "transparent"
+                            radius: 8
+                        }
+                    }
+                }
+            }
+
+            // 3. Fila de Opciones Adicionales
+            ColumnLayout {
+                Layout.fillWidth: true; spacing: 4
+                visible: activeControlDevice && activeControlDevice.isOn
+                Text { text: qsTr("OPCIONES ADICIONALES"); font.pixelSize: 10; font.weight: Font.Bold; color: colorTextSecondary }
+                
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 10
+                    
+                    // ExtraDry Toggle
+                    Rectangle {
+                        color: "#1A2035"; radius: 10; border.color: (activeControlDevice && activeControlDevice.dishwasherExtraDry) ? colorAccent : colorBorder; border.width: 1
+                        Layout.fillWidth: true; implicitHeight: 48
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: activeControlDevice && sensorBridge.publishCommand(activeControlDevice.topic, "TOGGLE_EXTRADRY")
+                        }
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 10
+                            ColumnLayout {
+                                spacing: 1
+                                Text { text: qsTr("ExtraDry"); color: colorTextPrimary; font.pixelSize: 11; font.weight: Font.Bold }
+                                Text { text: qsTr("Secado Extra"); color: colorTextSecondary; font.pixelSize: 9 }
+                            }
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: 14; height: 14; radius: 7
+                                color: (activeControlDevice && activeControlDevice.dishwasherExtraDry) ? colorAccent : "transparent"
+                                border.color: (activeControlDevice && activeControlDevice.dishwasherExtraDry) ? colorAccent : colorBorder; border.width: 2
+                            }
+                        }
+                    }
+
+                    // Half Load Toggle
+                    Rectangle {
+                        color: "#1A2035"; radius: 10; border.color: (activeControlDevice && activeControlDevice.dishwasherHalfLoad) ? colorAccent : colorBorder; border.width: 1
+                        Layout.fillWidth: true; implicitHeight: 48
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: activeControlDevice && sensorBridge.publishCommand(activeControlDevice.topic, "TOGGLE_HALFLOAD")
+                        }
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 10
+                            ColumnLayout {
+                                spacing: 1
+                                Text { text: qsTr("Half Load"); color: colorTextPrimary; font.pixelSize: 11; font.weight: Font.Bold }
+                                Text { text: qsTr("Media Carga"); color: colorTextSecondary; font.pixelSize: 9 }
+                            }
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: 14; height: 14; radius: 7
+                                color: (activeControlDevice && activeControlDevice.dishwasherHalfLoad) ? colorAccent : "transparent"
+                                border.color: (activeControlDevice && activeControlDevice.dishwasherHalfLoad) ? colorAccent : colorBorder; border.width: 2
+                            }
+                        }
+                    }
+
+                    // SpeedPerfect+ Toggle
+                    Rectangle {
+                        color: "#1A2035"; radius: 10; border.color: (activeControlDevice && activeControlDevice.dishwasherSpeedPerfect) ? colorAccent : colorBorder; border.width: 1
+                        Layout.fillWidth: true; implicitHeight: 48
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: activeControlDevice && sensorBridge.publishCommand(activeControlDevice.topic, "TOGGLE_SPEEDPERFECT")
+                        }
+                        RowLayout {
+                            anchors.fill: parent; anchors.margins: 10
+                            ColumnLayout {
+                                spacing: 1
+                                Text { text: qsTr("SpeedPerfect+"); color: colorTextPrimary; font.pixelSize: 11; font.weight: Font.Bold }
+                                Text { text: qsTr("Ciclo Rápido"); color: colorTextSecondary; font.pixelSize: 9 }
+                            }
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: 14; height: 14; radius: 7
+                                color: (activeControlDevice && activeControlDevice.dishwasherSpeedPerfect) ? colorAccent : "transparent"
+                                border.color: (activeControlDevice && activeControlDevice.dishwasherSpeedPerfect) ? colorAccent : colorBorder; border.width: 2
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            // 4. Botones Principales de Ciclo e Inicio
+            RowLayout {
+                Layout.fillWidth: true; spacing: 10
+                
+                Button {
+                    Layout.fillWidth: true; implicitHeight: 42; text: (activeControlDevice && activeControlDevice.isOn) ? qsTr("APAGAR MÁQUINA") : qsTr("ENCENDER MÁQUINA")
+                    enabled: activeControlDevice ? activeControlDevice.available : false
+                    padding: 0
+                    background: Rectangle {
+                        color: parent.enabled ? ((activeControlDevice && activeControlDevice.isOn) ? "#3D2B1F" : "#1F2E3D") : "#151B2E"
+                        border.color: parent.enabled ? ((activeControlDevice && activeControlDevice.isOn) ? colorWarning : colorAccent) : colorBorder
+                        radius: 10
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? ((activeControlDevice && activeControlDevice.isOn) ? colorWarning : colorAccent) : "#475569"
+                        font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        if (activeControlDevice) {
+                            sensorBridge.publishCommand(activeControlDevice.topic, activeControlDevice.isOn ? "OFF" : "ON")
+                        }
+                    }
+                }
+
+                // Iniciar / Detener
+                Button {
+                    Layout.fillWidth: true; implicitHeight: 42
+                    property bool isRunning: activeControlDevice && activeControlDevice.dishwasherState && activeControlDevice.dishwasherState.toString().indexOf("Run") !== -1
+                    text: isRunning ? qsTr("DETENER CICLO") : qsTr("INICIAR PROGRAMA")
+                    enabled: activeControlDevice && activeControlDevice.available && activeControlDevice.isOn && (!isRunning ? !activeControlDevice.dishwasherDoorOpen : true)
+                    padding: 0
+                    background: Rectangle {
+                        color: parent.enabled ? (parent.isRunning ? "#3D1F1F" : "#1F3A2B") : "#151B2E"
+                        border.color: parent.enabled ? (parent.isRunning ? colorDanger : colorSuccess) : colorBorder
+                        radius: 10
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        color: parent.enabled ? (parent.isRunning ? colorDanger : colorSuccess) : "#475569"
+                        font.weight: Font.Bold; font.pixelSize: 12; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        if (activeControlDevice) {
+                            sensorBridge.publishCommand(activeControlDevice.topic, isRunning ? "STOP" : "START")
+                        }
                     }
                 }
             }

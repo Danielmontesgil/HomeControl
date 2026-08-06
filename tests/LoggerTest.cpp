@@ -3,9 +3,18 @@
 #include "Core/Log.h"
 #include "Core/ILogger.h"
 #include "Core/ConsoleLogger.h"
+#include <QDebug>
+#include <QString>
 
 using ::testing::_;
 using ::testing::Exactly;
+
+namespace {
+    QString s_capturedQtOutput;
+    void testQtMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+        s_capturedQtOutput += msg + "\n";
+    }
+}
 
 class MockLogger : public ILogger {
 public:
@@ -68,18 +77,26 @@ TEST_F(LoggerTest, ConsoleLoggerSanity) {
     Log::setLogger(consoleLogger);
     Log::setLogMask(LogLevelAll);
     
-    testing::internal::CaptureStdout();
-    Log::info("TestTag", "TestMsg");
-    std::string output = testing::internal::GetCapturedStdout();
+    s_capturedQtOutput.clear();
+    auto oldHandler = qInstallMessageHandler(testQtMessageHandler);
     
+    Log::info("TestTag", "TestMsg");
+    
+    qInstallMessageHandler(oldHandler);
+    
+    std::string output = s_capturedQtOutput.toStdString();
     EXPECT_NE(output.find("[INFO]"), std::string::npos);
     EXPECT_NE(output.find("TestTag"), std::string::npos);
     EXPECT_NE(output.find("TestMsg"), std::string::npos);
     
-    testing::internal::CaptureStderr();
-    Log::error("ErrTag", "ErrMsg");
-    std::string errOutput = testing::internal::GetCapturedStderr();
+    s_capturedQtOutput.clear();
+    oldHandler = qInstallMessageHandler(testQtMessageHandler);
     
+    Log::error("ErrTag", "ErrMsg");
+    
+    qInstallMessageHandler(oldHandler);
+    
+    std::string errOutput = s_capturedQtOutput.toStdString();
     EXPECT_NE(errOutput.find("[ERROR]"), std::string::npos);
     EXPECT_NE(errOutput.find("ErrTag"), std::string::npos);
     EXPECT_NE(errOutput.find("ErrMsg"), std::string::npos);

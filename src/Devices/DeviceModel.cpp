@@ -34,7 +34,10 @@ QHash<int, QByteArray> DeviceModel::roleNames() const
         {DishwasherDoorOpenRole, "dishwasherDoorOpen"},
         {DishwasherRemainingTimeRole, "dishwasherRemainingTime"},
         {DishwasherProgramRole, "dishwasherProgram"},
-        {DishwasherStateRole, "dishwasherState"}
+        {DishwasherStateRole, "dishwasherState"},
+        {DishwasherExtraDryRole, "dishwasherExtraDry"},
+        {DishwasherHalfLoadRole, "dishwasherHalfLoad"},
+        {DishwasherSpeedPerfectRole, "dishwasherSpeedPerfect"}
     };
 }
 
@@ -162,6 +165,24 @@ QVariant DeviceModel::data(const QModelIndex& index, int role) const
                 return dw->getProperty("dishwasherProgram");
             }
             return QVariant();
+        case DishwasherExtraDryRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherExtraDry");
+            }
+            return false;
+        case DishwasherHalfLoadRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherHalfLoad");
+            }
+            return false;
+        case DishwasherSpeedPerfectRole:
+            if (auto* dw = device->getComponent("dishwasher"))
+            {
+                return dw->getProperty("dishwasherSpeedPerfect");
+            }
+            return false;
     }
     
     return QVariant();

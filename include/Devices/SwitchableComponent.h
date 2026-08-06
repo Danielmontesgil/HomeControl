@@ -16,8 +16,10 @@ public:
     void prepareForCommand(const QString& payload) override;
 
     bool isOn() const { return m_isOn; }
+    void setPowerEntityId(const QString& entityId);
 
 private:
     HomeDeviceBase* m_parent;
     bool m_isOn = false;
+    QString m_powerEntityId;
 };

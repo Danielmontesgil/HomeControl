@@ -109,7 +109,7 @@ private:
     int m_simulationLatency{0};
     bool m_simulationAuthFail{false};
     bool m_simulationOfflineMode{false};
-    bool m_verboseLogging{false};
+    bool m_verboseLogging{true};
 
     void authenticate();
     void subscribeToEvents();
